@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Football Duel — Local 2 Player</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup"><div class="brand-mark">🏈</div><div><p class="eyebrow">LOCAL 2 PLAYER · ARCADE FOOTBALL</p><h1>FOOTBALL <span>DUEL</span></h1></div></div>
+      <div class="topbar-note"><span class="live-dot"></span> Call the play · beat the defense</div>
+    </header>
+
+    <main>
+      <section id="setupScreen" class="screen setup-screen">
+        <div class="hero-copy"><p class="eyebrow accent">PRE-GAME LOCKER ROOM</p><h2>Call the play.<br /><em>Own the field.</em></h2><p class="hero-subtitle">Choose your squad, read the matchup, and take every drive one snap at a time.</p></div>
+        <div class="team-select-grid">
+          <article class="team-picker panel home-picker"><div class="picker-heading"><div><p class="eyebrow muted">PLAYER 1 · HOME</p><h3 id="homeTeamName">Harbor Hawks</h3></div><div id="homeTeamBadge" class="team-badge home-badge">HH</div></div><div id="homeTeamTabs" class="team-tabs"></div><div id="homeTeamDetails" class="team-details"></div><div class="control-chip"><span class="keycap">W A S D</span> Move · <span class="keycap">X</span> Throw / snap</div></article>
+          <div class="versus-lockup"><span class="versus-line"></span><strong>VS</strong><span class="versus-line"></span><small>FOUR QUARTERS</small></div>
+          <article class="team-picker panel away-picker"><div class="picker-heading"><div><p class="eyebrow muted">PLAYER 2 · AWAY</p><h3 id="awayTeamName">Metro Comets</h3></div><div id="awayTeamBadge" class="team-badge away-badge">MC</div></div><div id="awayTeamTabs" class="team-tabs"></div><div id="awayTeamDetails" class="team-details"></div><div class="control-chip"><span class="keycap">ARROWS</span> Move · <span class="keycap">SPACE</span> Throw / snap</div></article>
+        </div>
+        <div class="setup-footer"><div class="rule-note"><span class="note-icon">!</span><span><strong>Coach's rule.</strong> Pick an offensive and defensive play before every snap. Break a tackle, convert the down, and find the end zone.</span></div><button id="startGameBtn" class="primary-button">ENTER THE STADIUM <span>→</span></button></div>
+      </section>
+
+      <section id="gameScreen" class="screen game-screen hidden">
+        <div class="scoreboard panel"><div class="score-team score-home"><span id="scoreHomeBadge" class="mini-badge">HH</span><div><span id="scoreHomeName">HARBOR HAWKS</span><strong id="scoreHome">0</strong></div></div><div class="game-clock"><span class="eyebrow muted">QTR <b id="quarterLabel">1</b></span><strong id="clockLabel">02:00</strong><span id="downLabel">1ST &amp; 10</span></div><div class="score-team score-away"><div><span id="scoreAwayName">METRO COMETS</span><strong id="scoreAway">0</strong></div><span id="scoreAwayBadge" class="mini-badge">MC</span></div></div>
+        <div id="announcement" class="announcement" aria-live="polite"></div>
+        <div class="field-wrap"><canvas id="gameCanvas" width="1280" height="650" aria-label="American football field with players"></canvas>
+          <div id="playOverlay" class="play-overlay hidden"><div class="play-card panel"><div class="play-card-top"><div><p class="eyebrow accent">HUDDLE UP</p><h2>Call the next play</h2><p id="driveSituation" class="situation-copy">1ST &amp; 10 · BALL ON 25</p></div><span id="possessionLabel" class="possession-pill">HOME BALL</span></div><div class="play-columns"><div class="play-column"><p class="eyebrow muted">OFFENSE · <span id="offenseCallout">PLAYER 1</span></p><div id="offensePlayChoices" class="play-choices"></div></div><div class="play-column"><p class="eyebrow muted">DEFENSE · <span id="defenseCallout">PLAYER 2</span></p><div id="defensePlayChoices" class="play-choices"></div></div></div><div class="ready-row"><div class="ready-state"><span id="offenseReadyDot" class="ready-dot"></span><span id="offenseReadyText">Offense choosing…</span></div><div class="ready-state"><span id="defenseReadyDot" class="ready-dot"></span><span id="defenseReadyText">Defense choosing…</span></div><button id="snapBtn" class="primary-button snap-button" disabled>SNAP IT <span>↗</span></button></div></div></div>
+          <div id="resultBanner" class="result-banner hidden"><strong id="resultBannerTitle">TOUCHDOWN!</strong><span id="resultBannerText">Drive continues.</span></div>
+        </div>
+        <div class="game-hud"><div class="hud-panel panel"><div class="hud-title"><span class="hud-dot orange"></span> LIVE DRIVE</div><p id="statusText">Choose a play to start the drive.</p><div class="drive-meta"><span id="ballSpotLabel">BALL ON 25</span><span id="possessionHud">HOME POSSESSION</span></div></div><div class="hud-panel panel"><div class="hud-title"><span class="hud-dot cyan"></span> CONTROLS</div><p id="controlText">P1: move with W A S D · hold X to throw</p><div class="action-meter"><span>THROW POWER</span><div><i id="throwMeterFill"></i></div></div></div><div class="hud-panel panel"><div class="hud-title"><span class="hud-dot violet"></span> MATCH NOTES</div><p id="matchNote">Read the defense, then attack the open lane.</p><button id="resetGameBtn" class="text-button">← Leave game</button></div></div>
+      </section>
+
+      <section id="resultScreen" class="screen result-screen hidden"><div class="result-card panel"><p class="eyebrow accent">FINAL WHISTLE</p><h2 id="resultTitle">Home team wins.</h2><p id="resultSummary"></p><div class="final-score"><div><span id="resultHomeName">HARBOR HAWKS</span><strong id="resultHomeScore">0</strong></div><b>—</b><div><strong id="resultAwayScore">0</strong><span id="resultAwayName">METRO COMETS</span></div></div><button id="rematchBtn" class="primary-button">RUN IT BACK <span>↗</span></button></div></section>
+    </main>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
