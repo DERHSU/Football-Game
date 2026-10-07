@@ -46,14 +46,39 @@ const defensePlays = [
   { id: 'bracket', name: 'Bracket Star', desc: 'Double the top threat', icon: '⟐' }
 ];
 
-function playDiagram(kind, playId) {
+const conversionOffensePlays = [
+  { id: 'xpKick', name: '1 PT · Extra Point Kick', desc: 'Split the uprights for one', icon: '◎' },
+  { id: 'xpSafeKick', name: '1 PT · Safe Kick', desc: 'Protect the snap and boot it', icon: '↗' },
+  { id: 'twoPointPower', name: '2 PT · Power Run', desc: 'Punch through the goal line', icon: '●' },
+  { id: 'twoPointPass', name: '2 PT · Quick Pass', desc: 'Win a short goal-line window', icon: '✕' },
+  { id: 'twoPointSweep', name: '2 PT · Sweep', desc: 'Race outside the goal-line box', icon: '➜' },
+  { id: 'twoPointFade', name: '2 PT · Fade', desc: 'Throw high to the back corner', icon: '↑' },
+  { id: 'twoPointSneak', name: '2 PT · QB Sneak', desc: 'Quarterback drives the pile', icon: '◆' },
+  { id: 'twoPointBoot', name: '2 PT · Bootleg', desc: 'Sell the run and roll out', icon: '≋' }
+];
+
+const conversionDefensePlays = [
+  { id: 'kickBlock', name: 'Block Kick', desc: 'Attack the one-point protection', icon: '⚡' },
+  { id: 'kickSafe', name: 'Kick Safe', desc: 'Set the return wall', icon: '▽' },
+  { id: 'goalLine', name: 'Goal Line', desc: 'Pack the box for two points', icon: '▣' },
+  { id: 'goalBlitz', name: 'Goal-Line Blitz', desc: 'Bring pressure immediately', icon: '◇' },
+  { id: 'spy', name: 'QB Spy', desc: 'Keep the quarterback contained', icon: '◉' },
+  { id: 'man', name: 'Lock Man', desc: 'Mirror every conversion route', icon: '◎' },
+  { id: 'zone', name: 'Red Zone Zone', desc: 'Pass off the crossing threat', icon: '△' },
+  { id: 'prevent', name: 'Back Line', desc: 'Protect the back of the end zone', icon: '↔' }
+];
+
+function playDiagram(kind, playId, options = {}) {
   const offense = kind === 'offense';
-  const marker = `arrow-${kind}-${playId}`;
-  const orange = '#ff9b58';
-  const cyan = '#68d5d5';
+  const direction = options.direction === -1 ? -1 : 1;
+  const teamColor = options.teamColor || (offense ? '#ff9b58' : '#68d5d5');
+  const opponentColor = options.opponentColor || (offense ? '#68d5d5' : '#ff9b58');
+  const marker = `arrow-${kind}-${playId}-${direction === -1 ? 'reverse' : 'forward'}`;
+  const orange = offense ? teamColor : opponentColor;
+  const cyan = offense ? opponentColor : teamColor;
   const gold = '#ffd25b';
   const ink = '#b8c9c0';
-  const dot = (x, y, color, label = '') => `<circle cx="${x}" cy="${y}" r="3.2" fill="${color}" stroke="#0b1718" stroke-width="1.5"/>${label ? `<text x="${x}" y="${y + 1.7}" text-anchor="middle" font-size="4.4" font-weight="800" fill="#0b1718">${label}</text>` : ''}`;
+  const dot = (x, y, color, label = '') => `<circle cx="${x}" cy="${y}" r="3.2" fill="${color}" stroke="#0b1718" stroke-width="1.5"/>${label ? `<text x="${x}" y="${y + 1.7}" text-anchor="middle" font-size="4.4" font-weight="800" fill="#0b1718"${direction === -1 ? ` transform="translate(${x * 2} 0) scale(-1 1)"` : ''}>${label}</text>` : ''}`;
   const path = (d, color = offense ? orange : cyan, dashed = false, arrow = true) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${dashed ? 'stroke-dasharray="3 2"' : ''} ${arrow ? `marker-end="url(#${marker})"` : ''}/>`;
   const field = `<rect x="1" y="1" width="114" height="56" rx="4" fill="#102522" stroke="#496158"/><path d="M58 2V56 M86 2V56" stroke="#527067" stroke-width=".7" stroke-dasharray="2 3"/>`;
   const defs = `<defs><marker id="${marker}" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="${offense ? orange : cyan}"/></marker></defs>`;
@@ -92,12 +117,46 @@ function playDiagram(kind, playId) {
     };
     routes = map[playId] || map.man;
   }
-  return `<svg viewBox="0 0 116 58" role="img" aria-label="${offense ? 'Offensive' : 'Defensive'} ${playId} route diagram">${defs}${field}${routes}</svg>`;
+  const transform = direction === -1 ? ' transform="translate(116 0) scale(-1 1)"' : '';
+  return `<svg viewBox="0 0 116 58" role="img" aria-label="${offense ? 'Offensive' : 'Defensive'} ${playId} route diagram">${defs}<g${transform}>${field}${routes}</g></svg>`;
 }
 
-function playChoiceMarkup(play, kind) {
-  const selected = kind === 'offense' ? state.selectedOffense === play.id : state.selectedDefense === play.id;
-  return `<button class="play-choice ${selected ? `selected ${kind}` : ''}" data-play="${play.id}" data-kind="${kind}"><div class="play-art">${playDiagram(kind, play.id)}</div><strong>${play.icon} ${play.name}</strong><span>${play.desc}</span></button>`;
+function playInputMap(playerSide) {
+  const controls = controlsFor(playerSide);
+  const label = key => key.startsWith('arrow') ? ({ arrowup: '↑', arrowright: '→', arrowdown: '↓', arrowleft: '←' }[key] || key) : key.toUpperCase();
+  return [
+    { keys: [controls.up], label: label(controls.up) },
+    { keys: [controls.right], label: label(controls.right) },
+    { keys: [controls.down], label: label(controls.down) },
+    { keys: [controls.left], label: label(controls.left) },
+    { keys: [controls.up, controls.right], label: `${label(controls.up)} + ${label(controls.right)}` },
+    { keys: [controls.down, controls.right], label: `${label(controls.down)} + ${label(controls.right)}` },
+    { keys: [controls.up, controls.left], label: `${label(controls.up)} + ${label(controls.left)}` },
+    { keys: [controls.down, controls.left], label: `${label(controls.down)} + ${label(controls.left)}` }
+  ];
+}
+
+function isConversionPhase() {
+  return state?.phase === 'conversion' || state?.phase === 'conversion-play' || state?.phase === 'conversion-kick';
+}
+
+function offenseSideForState() {
+  return isConversionPhase() ? state.conversionTeam : state.possession;
+}
+
+function playsForPlayer(playerSide) {
+  const offense = playerSide === offenseSideForState();
+  if (isConversionPhase()) return offense ? conversionOffensePlays : conversionDefensePlays;
+  return offense ? offensePlays : defensePlays;
+}
+
+function playChoiceMarkup(play, kind, playerSide, index, team) {
+  const input = playInputMap(playerSide)[index] || { keys: [], label: '?' };
+  const direction = offenseSideForState() === 1 ? -1 : 1;
+  const opponent = playerSide === 0 ? state?.away : state?.home;
+  const icon = direction === -1 ? play.icon.replace('↗', '↖').replace('↘', '↙').replace('➜', '←') : play.icon;
+  const diagram = playDiagram(kind, play.id, { direction, teamColor: team.color, opponentColor: opponent?.color });
+  return `<article class="play-choice" data-play="${play.id}" data-kind="${kind}" data-player="${playerSide}" role="group" aria-label="${input.label}: ${play.name}"><div class="play-art">${diagram}</div><div class="play-choice-heading"><kbd class="play-key">${input.label}</kbd><strong>${icon} ${play.name}</strong></div><span>${play.desc}</span></article>`;
 }
 
 function setPlayTeamTheme(side, team, playerNumber, role) {
@@ -106,21 +165,28 @@ function setPlayTeamTheme(side, team, playerNumber, role) {
   column.style.setProperty('--play-team-dark', team.dark);
   column.classList.toggle('offense-column', role === 'offense');
   column.classList.toggle('defense-column', role === 'defense');
+  const selected = Boolean(state?.playSelections?.[playerNumber - 1]);
+  column.classList.toggle('player-selected', selected);
   $(`${side}PlayRole`).textContent = role.toUpperCase();
   $(`${side}PlayCallout`).textContent = `${team.name.toUpperCase()} · P${playerNumber}`;
+  $(`${side}PlayStatus`).textContent = selected ? ' · SELECTED' : '';
+  $(`${side}PlayStatus`).classList.toggle('visible', selected);
 }
 
 function renderTeamPlayColumn(side, team, playerNumber, role) {
   setPlayTeamTheme(side, team, playerNumber, role);
-  const plays = role === 'offense' ? offensePlays : defensePlays;
-  $(`${side}PlayChoices`).innerHTML = plays.map(play => playChoiceMarkup(play, role)).join('');
+  const plays = playsForPlayer(playerNumber - 1);
+  $(`${side}PlayChoices`).innerHTML = plays.map((play, index) => playChoiceMarkup(play, role, playerNumber - 1, index, team)).join('');
 }
 
 let homeIndex = 0;
 let awayIndex = 1;
 let state = null;
 let keys = new Set();
+let playHeldKeys = new Set();
 let animationId = null;
+let turfPattern = null;
+let endZonePattern = null;
 
 function statBar(label, value) {
   return `<div class="stat-item"><span>${label}</span><div class="stat-bar"><i style="width:${value}%"></i></div><b class="stat-value">${value}</b></div>`;
@@ -171,12 +237,86 @@ function keyForSide(side) {
   return controlsFor(side).action;
 }
 
+function playDirectionKeys(playerSide) {
+  const controls = controlsFor(playerSide);
+  return [controls.up, controls.right, controls.down, controls.left];
+}
+
+function syncSelectedPlayCalls() {
+  if (!state) return;
+  const offenseSide = offenseSideForState();
+  const defenseSide = 1 - state.possession;
+  state.selectedOffense = state.playSelections[offenseSide] || null;
+  state.selectedDefense = state.playSelections[defenseSide] || null;
+}
+
+function playInputSetMatches(left, right) {
+  return left.length === right.length && left.every(key => right.includes(key));
+}
+
+function isPlayInputKey(key) {
+  return playDirectionKeys(0).concat(playDirectionKeys(1)).includes(key);
+}
+
+function choosePlayForPlayer(playerSide, playId) {
+  if (!state || !playId || state.playActive || !['play', 'conversion'].includes(state.phase) || state.playSelections[playerSide]) return;
+  state.playPendingInputs[playerSide] = null;
+  state.playSelections[playerSide] = playId;
+  syncSelectedPlayCalls();
+  renderPlayOverlay();
+}
+
+function playIdForInput(playerSide, input) {
+  const plays = playsForPlayer(playerSide);
+  const index = playInputMap(playerSide).findIndex(candidate => playInputSetMatches(candidate.keys, input.keys));
+  return plays[index]?.id || null;
+}
+
+function handlePlaySelectionInput(key) {
+  if (!state || !['play', 'conversion'].includes(state.phase) || state.playActive || $('playOverlay').classList.contains('hidden')) return false;
+  const playerSide = playDirectionKeys(0).includes(key) ? 0 : playDirectionKeys(1).includes(key) ? 1 : null;
+  if (playerSide === null) return false;
+  if (state.playSelections[playerSide]) return true;
+
+  const held = playDirectionKeys(playerSide).filter(controlKey => playHeldKeys.has(controlKey));
+  const inputMap = playInputMap(playerSide);
+  if (held.length >= 2) {
+    const chord = inputMap.find(input => input.keys.length === held.length && playInputSetMatches(input.keys, held));
+    state.playPendingInputs[playerSide] = null;
+    if (chord) choosePlayForPlayer(playerSide, playIdForInput(playerSide, chord));
+    return true;
+  }
+
+  state.playPendingInputs[playerSide] = key;
+  return true;
+}
+
+function handlePlaySelectionRelease(key) {
+  if (!state || !['play', 'conversion'].includes(state.phase) || state.playActive || $('playOverlay').classList.contains('hidden')) return false;
+  const playerSide = playDirectionKeys(0).includes(key) ? 0 : playDirectionKeys(1).includes(key) ? 1 : null;
+  if (playerSide === null) return false;
+  if (state.playSelections[playerSide]) return true;
+  if (state.playPendingInputs[playerSide] !== key) return true;
+  state.playPendingInputs[playerSide] = null;
+  const single = playInputMap(playerSide).find(input => input.keys.length === 1 && input.keys[0] === key);
+  if (single) choosePlayForPlayer(playerSide, playIdForInput(playerSide, single));
+  return true;
+}
+
 function isRunPlay() {
-  return ['power', 'sweep', 'qbDraw'].includes(state?.selectedOffense);
+  return ['power', 'sweep', 'qbDraw', 'twoPointPower', 'twoPointSweep', 'twoPointSneak'].includes(state?.selectedOffense);
+}
+
+function playerFacingAtSnap(side) {
+  const attackDirection = state?.phase?.startsWith('kickoff') ? (state.kickoffTeam === 0 ? 1 : -1) : (state?.possession === 0 ? 1 : -1);
+  return side === state?.possession ? attackDirection : -attackDirection;
 }
 
 function makePlayer({ id, role, side, x, y, number }) {
-  return { id, role, side, x, y, homeX: x, homeY: y, targetX: x, targetY: y, vx: 0, vy: 0, routePhase: 0, routeComplete: false, stride: Math.random() * Math.PI * 2, moving: false, number, action: 0, tackleTimer: 0, tackleRole: '', tackleDir: 1, blocking: false, blockTargetId: null, blockedTimer: 0, assignmentId: null, zoneX: x, zoneY: y, reactionTimer: 0, team: side === 0 ? state.home : state.away };
+  const appearanceSeed = [...id].reduce((total, character) => total + character.charCodeAt(0), number);
+  const skinTones = ['#7d4934', '#a96443', '#c7835f', '#dfaa82', '#f0c19a'];
+  const hairTones = ['#1a1514', '#35221a', '#6b3e25', '#9a613b', '#d0a06f'];
+  return { id, role, side, x, y, homeX: x, homeY: y, targetX: x, targetY: y, vx: 0, vy: 0, routePhase: 0, routeComplete: false, stride: Math.random() * Math.PI * 2, moving: false, number, action: 0, throwTimer: 0, tackleTimer: 0, tackleRole: '', tackleDir: 1, blocking: false, blockTargetId: null, blockedTimer: 0, assignmentId: null, zoneX: x, zoneY: y, reactionTimer: 0, facing: playerFacingAtSnap(side), skin: skinTones[appearanceSeed % skinTones.length], hair: hairTones[(appearanceSeed * 3) % hairTones.length], visor: appearanceSeed % 7 === 0, build: .92 + (appearanceSeed % 5) * .04, team: side === 0 ? state.home : state.away };
 }
 
 function initialState() {
@@ -189,6 +329,7 @@ function initialState() {
     possession: 0,
     phase: 'kickoff',
     kickoffTeam: 0,
+    conversionTeam: null,
     kickoffReturnerId: 'KR',
     kickoffTargetX: 76,
     ballYard: 25,
@@ -196,6 +337,8 @@ function initialState() {
     distance: 10,
     selectedOffense: null,
     selectedDefense: null,
+    playSelections: [null, null],
+    playPendingInputs: [null, null],
     passTargetId: null,
     passAim: 'up',
     playActive: false,
@@ -244,10 +387,12 @@ function updateHud() {
   $('quarterLabel').textContent = state.quarter;
   $('scoreHome').textContent = state.score[0];
   $('scoreAway').textContent = state.score[1];
-  $('downLabel').innerHTML = state.down > 4 ? 'TURNOVER' : `${ordinal(state.down)} &amp; ${Math.max(1, Math.ceil(state.distance))}`;
+  $('downLabel').innerHTML = isConversionPhase() ? 'CONV' : state.down > 4 ? 'TURNOVER' : `${ordinal(state.down)} &amp; ${Math.max(1, Math.ceil(state.distance))}`;
   $('ballSpotLabel').textContent = `BALL ON ${Math.round(state.ballYard)}`;
   const possessionTeam = state.possession === 0 ? state.home.name : state.away.name;
-  $('possessionHud').textContent = state.phase === 'kickoff' || state.phase === 'kickoff-flight'
+  $('possessionHud').textContent = isConversionPhase()
+    ? `${possessionTeam} CONVERSION`
+    : state.phase === 'kickoff' || state.phase === 'kickoff-flight'
     ? `${possessionTeam} RECEIVES`
     : `${possessionTeam} POSSESSION`;
   $('statusText').textContent = state.message;
@@ -441,18 +586,22 @@ function renderKickoffOverlay() {
   setPlayTeamTheme('home', state.home, 1, state.kickoffTeam === 0 ? 'offense' : 'defense');
   setPlayTeamTheme('away', state.away, 2, state.kickoffTeam === 1 ? 'offense' : 'defense');
   $('playOverlay').classList.remove('hidden');
+  $('playOverlay').querySelector('h2').textContent = 'Kickoff ready';
   $('possessionLabel').textContent = `${kickingTeam.name.toUpperCase()} KICKING`;
   $('possessionLabel').style.color = kickingTeam.color;
   $('possessionLabel').style.borderColor = kickingTeam.color;
   $('driveSituation').textContent = `KICKOFF · PLAYER ${state.kickoffTeam + 1} KICKS`;
-  const kickChoice = `<div class="play-choice selected offense" data-kind="offense"><div class="play-art">${playDiagram('offense', 'verts')}</div><strong>↗ Kick deep</strong><span>Build power, then send it downfield.</span></div>`;
-  const returnChoice = `<div class="play-choice selected defense" data-kind="defense"><div class="play-art">${playDiagram('defense', 'prevent')}</div><strong>↘ Set up the return</strong><span>Player 2 takes over when the catch is made.</span></div>`;
+  const kickDirection = state.kickoffTeam === 0 ? 1 : -1;
+  const kickChoice = `<div class="play-choice" data-kind="offense"><div class="play-art">${playDiagram('offense', 'verts', { direction: kickDirection, teamColor: kickingTeam.color, opponentColor: returnTeam.color })}</div><strong>${kickDirection === -1 ? '←' : '→'} Kick deep</strong><span>Build power, then send it downfield.</span></div>`;
+  const returnChoice = `<div class="play-choice" data-kind="defense"><div class="play-art">${playDiagram('defense', 'prevent', { direction: -kickDirection, teamColor: returnTeam.color, opponentColor: kickingTeam.color })}</div><strong>${kickDirection === 1 ? '←' : '→'} Set up the return</strong><span>Player 2 takes over when the catch is made.</span></div>`;
   $('homePlayChoices').innerHTML = state.kickoffTeam === 0 ? kickChoice : returnChoice;
   $('awayPlayChoices').innerHTML = state.kickoffTeam === 1 ? kickChoice : returnChoice;
-  $('offenseReadyDot').classList.add('ready');
-  $('defenseReadyDot').classList.add('ready');
-  $('offenseReadyText').textContent = 'Kicker ready';
-  $('defenseReadyText').textContent = 'Returner ready';
+  $('playerOneReadyDot').classList.add('ready');
+  $('playerTwoReadyDot').classList.add('ready');
+  $('playerOneReadyText').textContent = 'P1 ready';
+  $('playerTwoReadyText').textContent = 'P2 ready';
+  $('revokePlayerOneBtn').classList.add('hidden');
+  $('revokePlayerTwoBtn').classList.add('hidden');
   $('snapBtn').disabled = false;
   $('snapBtn').innerHTML = 'KICK OFF <span>↗</span>';
   $('snapBtn').onclick = startKickoff;
@@ -460,34 +609,39 @@ function renderKickoffOverlay() {
 
 function renderPlayOverlay() {
   if (!state || state.gameOver) return;
-  const offenseTeam = state.possession === 0 ? state.home : state.away;
-  const defenseTeam = state.possession === 0 ? state.away : state.home;
-  renderTeamPlayColumn('home', state.home, 1, state.possession === 0 ? 'offense' : 'defense');
-  renderTeamPlayColumn('away', state.away, 2, state.possession === 1 ? 'offense' : 'defense');
+  const offenseSide = offenseSideForState();
+  const offenseTeam = offenseSide === 0 ? state.home : state.away;
+  const defenseTeam = offenseSide === 0 ? state.away : state.home;
+  renderTeamPlayColumn('home', state.home, 1, offenseSide === 0 ? 'offense' : 'defense');
+  renderTeamPlayColumn('away', state.away, 2, offenseSide === 1 ? 'offense' : 'defense');
   $('playOverlay').classList.remove('hidden');
-  $('snapBtn').innerHTML = 'SNAP IT <span>↗</span>';
-  $('possessionLabel').textContent = `${offenseTeam.name.toUpperCase()} BALL`;
+  $('playOverlay').querySelector('h2').textContent = isConversionPhase() ? 'Finish the score' : 'Call the next play';
+  $('snapBtn').innerHTML = `${isConversionPhase() ? 'RUN CONVERSION' : 'PLAY'} <span>↗</span>`;
+  $('possessionLabel').textContent = isConversionPhase() ? `${offenseTeam.name.toUpperCase()} CONVERTING` : `${offenseTeam.name.toUpperCase()} BALL`;
   $('possessionLabel').style.color = offenseTeam.color;
   $('possessionLabel').style.borderColor = offenseTeam.color;
-  $('driveSituation').textContent = `${ordinal(state.down)} & ${Math.max(1, Math.ceil(state.distance))} · BALL ON ${Math.round(state.ballYard)}`;
-  document.querySelectorAll('#homePlayChoices .play-choice, #awayPlayChoices .play-choice').forEach(button => button.addEventListener('click', () => {
-    if (button.dataset.kind === 'offense') state.selectedOffense = button.dataset.play;
-    if (button.dataset.kind === 'defense') state.selectedDefense = button.dataset.play;
-    createFormation();
-    renderPlayOverlay();
-  }));
-  const offenseReady = Boolean(state.selectedOffense);
-  const defenseReady = Boolean(state.selectedDefense);
-  $('offenseReadyDot').classList.toggle('ready', offenseReady);
-  $('defenseReadyDot').classList.toggle('ready', defenseReady);
-  $('offenseReadyText').textContent = offenseReady ? 'Offense locked in' : 'Offense choosing…';
-  $('defenseReadyText').textContent = defenseReady ? 'Defense locked in' : 'Defense choosing…';
-  $('snapBtn').disabled = !(offenseReady && defenseReady);
+  $('driveSituation').textContent = isConversionPhase() ? 'TOUCHDOWN +6 · CHOOSE 1 OR 2 POINTS' : `${ordinal(state.down)} & ${Math.max(1, Math.ceil(state.distance))} · BALL ON ${Math.round(state.ballYard)}`;
+  const playerOneReady = Boolean(state.playSelections[0]);
+  const playerTwoReady = Boolean(state.playSelections[1]);
+  $('playerOneReadyDot').classList.toggle('ready', playerOneReady);
+  $('playerTwoReadyDot').classList.toggle('ready', playerTwoReady);
+  $('playerOneReadyText').textContent = playerOneReady ? 'P1 selected' : 'P1 choosing…';
+  $('playerTwoReadyText').textContent = playerTwoReady ? 'P2 selected' : 'P2 choosing…';
+  $('revokePlayerOneBtn').classList.toggle('hidden', !playerOneReady);
+  $('revokePlayerTwoBtn').classList.toggle('hidden', !playerTwoReady);
+  $('revokePlayerOneBtn').onclick = () => { state.playSelections[0] = null; syncSelectedPlayCalls(); renderPlayOverlay(); };
+  $('revokePlayerTwoBtn').onclick = () => { state.playSelections[1] = null; syncSelectedPlayCalls(); renderPlayOverlay(); };
+  $('snapBtn').disabled = !(playerOneReady && playerTwoReady);
   $('snapBtn').onclick = startPlay;
 }
 
 function startPlay() {
+  if (state.phase === 'conversion') {
+    startConversionPlay();
+    return;
+  }
   if (!state.selectedOffense || !state.selectedDefense || state.playActive) return;
+  playHeldKeys.clear();
   state.playActive = true;
   state.playTime = 0;
   state.playStartYard = state.ballYard;
@@ -505,8 +659,65 @@ function startPlay() {
   announce(`${offense.name} · ${defense.name}`, targetText);
 }
 
+function createConversionKickFormation() {
+  const side = state.conversionTeam;
+  const direction = side === 0 ? 1 : -1;
+  const goalLine = side === 0 ? RIGHT_GOAL_LINE : LEFT_GOAL_LINE;
+  const kickX = goalLine - direction * 9;
+  const defenseX = kickX + direction * 5;
+  const offense = [
+    ['K', 'K', kickX, 50, 4],
+    ['LS', 'OL', kickX - direction * 3, 50, 60],
+    ['G1', 'OL', kickX - direction * 4, 42, 64],
+    ['G2', 'OL', kickX - direction * 4, 58, 65],
+    ['TE', 'TE', kickX - direction * 5, 35, 88]
+  ];
+  const defense = [
+    ['DE1', 'DE', defenseX, 34, 91],
+    ['DE2', 'DE', defenseX, 66, 92],
+    ['LB1', 'LB', defenseX + direction * 2, 44, 55],
+    ['LB2', 'LB', defenseX + direction * 2, 56, 56],
+    ['S', 'S', defenseX + direction * 7, 50, 31]
+  ];
+  state.players = [...offense.map(([id, role, x, y, number]) => makePlayer({ id, role, side, x, y, number })), ...defense.map(([id, role, x, y, number]) => makePlayer({ id, role, side: 1 - side, x, y, number }))];
+  state.ballCarrier = null;
+  state.ball = null;
+  state.defenderId = 'LB1';
+}
+
+function startConversionPlay() {
+  if (!state || state.phase !== 'conversion' || !state.selectedOffense || !state.selectedDefense || state.playActive) return;
+  const offense = conversionOffensePlays.find(play => play.id === state.selectedOffense);
+  const defense = conversionDefensePlays.find(play => play.id === state.selectedDefense);
+  const side = state.conversionTeam;
+  const direction = side === 0 ? 1 : -1;
+  const goalLine = side === 0 ? RIGHT_GOAL_LINE : LEFT_GOAL_LINE;
+  playHeldKeys.clear();
+  state.possession = side;
+  state.playActive = true;
+  state.playTime = 0;
+  state.ball = null;
+  state.throwCharge = 0;
+  state.throwing = false;
+  $('playOverlay').classList.add('hidden');
+  if (state.selectedOffense === 'xpKick' || state.selectedOffense === 'xpSafeKick') {
+    createConversionKickFormation();
+    state.phase = 'conversion-kick';
+    const kicker = state.players.find(player => player.id === 'K');
+    state.ball = { x: kicker.x, y: kicker.y - 2, sx: kicker.x, sy: kicker.y - 2, tx: goalLine + direction * 5, ty: 50, t: 0, duration: 1.2, z: 0, targetId: null, vx: direction * 20, power: true, conversionKick: true };
+    announce('EXTRA POINT KICK!', `${offense.name} · ${defense.name}. Watch the ball sail through the uprights.`);
+    return;
+  }
+  state.phase = 'conversion-play';
+  state.ballYard = goalLine - direction * 7;
+  state.passAim = 'up';
+  createFormation();
+  announce(`${offense.name} · ${defense.name}`, 'Two points are waiting in the end zone. Drive the runner across the goal line.');
+}
+
 function startKickoff() {
   if (!state || state.phase !== 'kickoff' || state.playActive) return;
+  playHeldKeys.clear();
   const kicker = state.players.find(player => player.id === 'K');
   const returner = state.players.find(player => player.id === state.kickoffReturnerId);
   if (!kicker || !returner) return;
@@ -740,10 +951,12 @@ function updatePlayer(player, dt) {
     }
   }
   player.blockedTimer = Math.max(0, player.blockedTimer - dt);
+  if (!player.tackleRole && Math.abs(player.vx) > .28) player.facing = Math.sign(player.vx);
   const movement = Math.hypot(player.vx, player.vy);
   player.moving = movement > 1.2;
   player.stride += dt * (player.moving ? 10 + movement * .22 : 3.5);
   player.action = Math.max(0, player.action - dt);
+  player.throwTimer = Math.max(0, player.throwTimer - dt);
   player.tackleTimer = Math.max(0, player.tackleTimer - dt);
 }
 
@@ -757,6 +970,8 @@ function launchPass() {
   const charge = Math.max(.15, state.throwCharge);
   const duration = Math.max(.52, 1.08 - charge * .33);
   state.ballCarrier = null;
+  qb.throwTimer = .5;
+  qb.action = .5;
   state.ball = { x: qb.x, y: qb.y - 3, sx: qb.x, sy: qb.y - 3, tx: target.targetX, ty: target.targetY, t: 0, duration, z: 0, targetId, vx: direction * (18 + charge * 15), power: charge > .7 };
   state.throwing = false;
   state.throwCharge = 0;
@@ -788,14 +1003,26 @@ function updateBall(dt) {
     }
     return;
   }
-  if (defender && progress > .35 && state.selectedDefense !== 'cover2' && state.phase !== 'kickoff-flight') {
+  if (defender && progress > .35 && state.selectedDefense !== 'cover2' && state.phase !== 'kickoff-flight' && state.phase !== 'conversion-kick') {
     state.ball = null;
+    if (state.phase === 'conversion-play') {
+      finishConversion(false);
+      return;
+    }
     state.ballCarrier = defender.id;
     endPlay('interception', -3);
     return;
   }
   if (progress >= 1) {
     state.ball = null;
+    if (state.phase === 'conversion-kick') {
+      finishConversion(state.selectedDefense !== 'kickBlock', 'kick');
+      return;
+    }
+    if (state.phase === 'conversion-play') {
+      finishConversion(false);
+      return;
+    }
     if (state.phase === 'kickoff-flight') {
       const returner = state.players.find(player => player.id === state.kickoffReturnerId);
       state.ballCarrier = returner?.id || null;
@@ -813,7 +1040,7 @@ function tryTackle(side) {
   if (!state || !state.playActive || side === state.possession || state.ballCarrier === null) return;
   const tackler = controlledDefender();
   const runner = controlledPlayer();
-  if (tackler && runner && Math.hypot(tackler.x - runner.x, tackler.y - runner.y) < 9) {
+  if (tackler && runner && Math.hypot(tackler.x - runner.x, tackler.y - runner.y) < 5.2) {
     const direction = state.possession === 0 ? 1 : -1;
     const type = state.phase === 'kickoff-return' ? 'kickoff-return' : 'tackle';
     startTackleSequence(tackler, runner, Math.round((runner.x - state.playStartYard) * direction), type);
@@ -824,7 +1051,7 @@ function resolveAutomaticTackle() {
   if (state.ballCarrier === null) return;
   const runner = controlledPlayer();
   const defenders = state.players.filter(player => player.side !== state.possession);
-  const tackler = defenders.find(player => Math.hypot(player.x - runner.x, player.y - runner.y) < 5.2);
+  const tackler = defenders.find(player => Math.hypot(player.x - runner.x, player.y - runner.y) < 3.8 && (player.moving || Math.hypot(player.vx, player.vy) > 1.1));
   if (tackler && state.playTime > 1.4) {
     const yards = Math.round((runner.x - state.playStartYard) * (state.possession === 0 ? 1 : -1));
     const type = state.phase === 'kickoff-return' ? 'kickoff-return' : runner.id === 'QB' ? 'sack' : 'tackle';
@@ -835,16 +1062,20 @@ function resolveAutomaticTackle() {
 function startTackleSequence(tackler, runner, yards, type = 'tackle') {
   if (state.tackleSequence || !state.playActive) return;
   const direction = Math.sign(runner.x - tackler.x) || (state.possession === 0 ? 1 : -1);
-  const duration = .62;
+  const duration = .92;
+  const contactX = runner.x - direction * 1.45;
+  const contactY = runner.y;
   state.playActive = false;
-  state.tackleSequence = { timer: duration, yards, type };
+  state.tackleSequence = { timer: duration, duration, yards, type, direction, tacklerId: tackler.id, runnerId: runner.id, tacklerStartX: tackler.x, tacklerStartY: tackler.y, runnerStartX: runner.x, runnerStartY: runner.y, contactX, contactY };
   tackler.tackleTimer = duration;
   tackler.tackleRole = 'tackler';
   tackler.tackleDir = direction;
+  tackler.facing = direction;
   tackler.action = duration;
   runner.tackleTimer = duration;
   runner.tackleRole = 'runner';
   runner.tackleDir = direction;
+  runner.facing = direction;
   runner.action = duration;
   spawnImpact(runner.x, runner.y, 14);
   $('resultBannerTitle').textContent = type === 'sack' ? 'SACK!' : type === 'kickoff-return' ? 'RETURN STOPPED' : 'TACKLE!';
@@ -859,7 +1090,27 @@ function startTackleSequence(tackler, runner, yards, type = 'tackle') {
 
 function updateTackleSequence(dt) {
   if (!state.tackleSequence) return;
-  state.tackleSequence.timer -= dt;
+  const sequence = state.tackleSequence;
+  sequence.timer -= dt;
+  const progress = clamp(1 - sequence.timer / sequence.duration, 0, 1);
+  const approach = clamp(progress / .58, 0, 1);
+  const approachEase = approach * approach * (3 - 2 * approach);
+  const hit = clamp((progress - .42) / .58, 0, 1);
+  const hitEase = hit * hit * (3 - 2 * hit);
+  const tackler = state.players.find(player => player.id === sequence.tacklerId);
+  const runner = state.players.find(player => player.id === sequence.runnerId);
+  if (tackler) {
+    tackler.x = lerp(sequence.tacklerStartX, sequence.contactX, approachEase);
+    tackler.y = lerp(sequence.tacklerStartY, sequence.contactY, approachEase);
+    tackler.vx = (sequence.contactX - sequence.tacklerStartX) / sequence.duration;
+    tackler.vy = (sequence.contactY - sequence.tacklerStartY) / sequence.duration;
+  }
+  if (runner) {
+    runner.x = sequence.runnerStartX + sequence.direction * 1.1 * hitEase;
+    runner.y = sequence.runnerStartY + 1.5 * hitEase;
+    runner.vx = sequence.direction * 1.1;
+    runner.vy = 1.5;
+  }
   state.players.forEach(player => { player.tackleTimer = Math.max(0, player.tackleTimer - dt); });
   if (state.tackleSequence.timer <= 0) {
     const yards = state.tackleSequence.yards;
@@ -867,13 +1118,14 @@ function updateTackleSequence(dt) {
     state.tackleSequence = null;
     state.players.forEach(player => { player.tackleRole = ''; player.tackleTimer = 0; });
     state.playActive = true;
-    endPlay(type || 'tackle', yards);
+    if (state.phase === 'conversion-play') finishConversion(false);
+    else endPlay(type || 'tackle', yards);
   }
 }
 
 function spawnImpact(x, y, count) {
   for (let i = 0; i < count; i += 1) {
-    state.particles.push({ x, y, vx: (Math.random() - .5) * 12, vy: (Math.random() - .5) * 12, life: .35 + Math.random() * .25, maxLife: .6, size: 1.2 + Math.random() * 2.2 });
+    state.particles.push({ x, y, vx: (Math.random() - .5) * 12, vy: (Math.random() - .5) * 12, life: .35 + Math.random() * .25, maxLife: .6, size: 1.2 + Math.random() * 2.2, type: 'impact', angle: Math.random() * Math.PI * 2 });
   }
 }
 
@@ -944,26 +1196,59 @@ function endPlay(reason, yards = 0) {
   queueNextPlay(650);
 }
 
-function scoreTouchdown(side) {
-  if (state.gameOver) return;
+function finishConversion(success, kind = 'two-point') {
+  if (!state || state.conversionTeam === null) return;
+  const scoringSide = state.conversionTeam;
+  const scoringTeam = scoringSide === 0 ? state.home : state.away;
+  const points = success ? (kind === 'kick' ? 1 : 2) : 0;
   state.playActive = false;
   state.ball = null;
-  state.score[side] += 7;
-  state.possession = 1 - side;
-  state.kickoffTeam = side;
+  state.throwing = false;
+  state.throwCharge = 0;
+  state.score[scoringSide] += points;
+  state.possession = 1 - scoringSide;
+  state.kickoffTeam = scoringSide;
   state.phase = 'kickoff';
   state.ballYard = 50;
   state.down = 1;
   state.distance = 10;
   state.resultBannerTimer = 1.15;
-  $('resultBannerTitle').textContent = 'TOUCHDOWN!';
-  $('resultBannerText').textContent = `${side === 0 ? state.home.name : state.away.name} cashes in for 7.`;
+  $('resultBannerTitle').textContent = kind === 'kick'
+    ? (success ? 'EXTRA POINT GOOD!' : 'KICK BLOCKED!')
+    : (success ? 'CONVERSION GOOD!' : 'CONVERSION STOPPED!');
+  $('resultBannerText').textContent = success
+    ? `${scoringTeam.name} adds ${points}. Kickoff is next.`
+    : 'The defense holds. Kickoff is next.';
   $('resultBanner').classList.remove('hidden');
-  announce(`TOUCHDOWN! ${side === 0 ? state.home.name : state.away.name}.`, 'New drive coming up after the celebration.');
-  queueNextPlay(1250, 'kickoff');
+  announce(success ? `${kind === 'kick' ? 'EXTRA POINT GOOD' : 'TWO-POINT CONVERSION GOOD'}!` : `${kind === 'kick' ? 'KICK BLOCKED' : 'CONVERSION STOPPED'}.`, success ? `${points} more point${points === 1 ? '' : 's'} added before the kickoff.` : 'The defense denied the conversion attempt.');
+  state.conversionTeam = null;
+  queueNextPlay(1450, 'kickoff');
+}
+
+function scoreTouchdown(side) {
+  if (state.gameOver) return;
+  state.playActive = false;
+  state.ball = null;
+  state.score[side] += 6;
+  state.conversionTeam = side;
+  state.possession = side;
+  state.kickoffTeam = side;
+  state.phase = 'conversion';
+  state.ballYard = 50;
+  state.down = 1;
+  state.distance = 10;
+  state.resultBannerTimer = 1.15;
+  $('resultBannerTitle').textContent = 'TOUCHDOWN!';
+  $('resultBannerText').textContent = `${side === 0 ? state.home.name : state.away.name} scores 6. Choose a 1-point or 2-point conversion.`;
+  $('resultBanner').classList.remove('hidden');
+  announce(`TOUCHDOWN! ${side === 0 ? state.home.name : state.away.name}.`, 'Six points are on the board. Choose the conversion play.');
+  queueNextPlay(1250, 'conversion');
 }
 
 function queueNextPlay(delay, nextPhase = 'play') {
+  playHeldKeys.clear();
+  state.playSelections = [null, null];
+  state.playPendingInputs = [null, null];
   state.selectedOffense = null;
   state.selectedDefense = null;
   setTimeout(() => {
@@ -1050,6 +1335,40 @@ function updatePlay(dt) {
   if (state.playActive && state.playTime > 7.8 && state.ballCarrier === 'QB' && !state.ball && !isRunPlay()) endPlay('sack', -1);
 }
 
+function updateConversionKick(dt) {
+  state.playTime += dt;
+  state.players.forEach(player => updatePlayer(player, dt));
+  if (state.ball) updateBall(dt);
+}
+
+function updateConversionPlay(dt) {
+  state.playTime += dt;
+  state.players.forEach(player => updatePlayer(player, dt));
+  const action = keyForSide(state.possession);
+  const qbActive = state.ballCarrier === 'QB' && state.possession === (state.players.find(player => player.id === 'QB')?.side ?? state.possession);
+  if (qbActive && !state.ball && !isRunPlay()) {
+    if (keys.has(action)) {
+      state.throwing = true;
+      state.throwCharge = Math.min(1, state.throwCharge + dt / 1.05);
+    } else if (state.throwing) {
+      launchPass();
+    }
+  }
+  if (state.ball) updateBall(dt);
+  resolveAutomaticTackle();
+  if (!state.playActive) return;
+  const runner = controlledPlayer();
+  const direction = state.conversionTeam === 0 ? 1 : -1;
+  const goalLine = state.conversionTeam === 0 ? RIGHT_GOAL_LINE : LEFT_GOAL_LINE;
+  if (runner && state.ballCarrier !== null && ((direction === 1 && runner.x >= goalLine) || (direction === -1 && runner.x <= goalLine))) {
+    finishConversion(true);
+    return;
+  }
+  if (runner && (runner.y <= 5.2 || runner.y >= 94.8) || state.playTime > 5.5) {
+    finishConversion(false);
+  }
+}
+
 function resolveOutOfBounds() {
   const runner = controlledPlayer();
   if (!runner || state.ballCarrier === null || state.playTime < .65) return;
@@ -1059,20 +1378,87 @@ function resolveOutOfBounds() {
   }
 }
 
+function getTurfPattern() {
+  if (turfPattern) return turfPattern;
+  const texture = document.createElement('canvas');
+  texture.width = 180;
+  texture.height = 96;
+  const textureCtx = texture.getContext('2d');
+  textureCtx.clearRect(0, 0, texture.width, texture.height);
+  for (let i = 0; i < 240; i += 1) {
+    const x = (i * 67) % texture.width;
+    const y = (i * 41) % texture.height;
+    const length = 2 + (i % 4);
+    textureCtx.strokeStyle = i % 3 === 0 ? 'rgba(200, 244, 164, .12)' : 'rgba(6, 57, 34, .16)';
+    textureCtx.lineWidth = i % 5 === 0 ? 1.2 : .7;
+    textureCtx.beginPath();
+    textureCtx.moveTo(x, y + 2);
+    textureCtx.lineTo(x + (i % 2 ? -1 : 1), y - length);
+    textureCtx.stroke();
+  }
+  turfPattern = ctx.createPattern(texture, 'repeat');
+  return turfPattern;
+}
+
+function getEndZonePattern() {
+  if (endZonePattern) return endZonePattern;
+  const texture = document.createElement('canvas');
+  texture.width = 36;
+  texture.height = 36;
+  const textureCtx = texture.getContext('2d');
+  textureCtx.strokeStyle = 'rgba(255, 255, 255, .16)';
+  textureCtx.lineWidth = 2;
+  for (let x = -36; x < 72; x += 12) {
+    textureCtx.beginPath();
+    textureCtx.moveTo(x, 36);
+    textureCtx.lineTo(x + 36, 0);
+    textureCtx.stroke();
+  }
+  endZonePattern = ctx.createPattern(texture, 'repeat');
+  return endZonePattern;
+}
+
 function drawField() {
   const fieldGradient = ctx.createLinearGradient(0, 0, 0, H);
   fieldGradient.addColorStop(0, '#267645');
   fieldGradient.addColorStop(1, '#174f35');
-  ctx.fillStyle = '#0b1715';
+  const stadiumGradient = ctx.createRadialGradient(W / 2, H * .35, 60, W / 2, H * .45, W * .75);
+  stadiumGradient.addColorStop(0, '#142c2a');
+  stadiumGradient.addColorStop(.55, '#091817');
+  stadiumGradient.addColorStop(1, '#040b0d');
+  ctx.fillStyle = stadiumGradient;
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = fieldGradient;
   ctx.fillRect(FIELD_LEFT, FIELD_TOP, FIELD_RIGHT - FIELD_LEFT, FIELD_BOTTOM - FIELD_TOP);
-  ctx.fillStyle = state.home.color;
+  for (let stripe = 0; stripe < 10; stripe += 1) {
+    ctx.fillStyle = stripe % 2 ? 'rgba(223, 255, 191, .045)' : 'rgba(0, 42, 28, .045)';
+    ctx.fillRect(yardToX(stripe * 10), FIELD_TOP, yardToX((stripe + 1) * 10) - yardToX(stripe * 10), FIELD_BOTTOM - FIELD_TOP);
+  }
+  ctx.globalAlpha = .85;
+  ctx.fillStyle = getTurfPattern();
+  ctx.fillRect(FIELD_LEFT, FIELD_TOP, FIELD_RIGHT - FIELD_LEFT, FIELD_BOTTOM - FIELD_TOP);
+  ctx.globalAlpha = 1;
+  const homeEndZoneGradient = ctx.createLinearGradient(FIELD_LEFT, 0, PLAYFIELD_LEFT, 0);
+  homeEndZoneGradient.addColorStop(0, state.home.dark);
+  homeEndZoneGradient.addColorStop(1, state.home.color);
+  ctx.fillStyle = homeEndZoneGradient;
   ctx.globalAlpha = .78;
   ctx.fillRect(FIELD_LEFT, FIELD_TOP, END_ZONE_WIDTH, FIELD_BOTTOM - FIELD_TOP);
-  ctx.fillStyle = state.away.color;
+  const awayEndZoneGradient = ctx.createLinearGradient(PLAYFIELD_RIGHT, 0, FIELD_RIGHT, 0);
+  awayEndZoneGradient.addColorStop(0, state.away.color);
+  awayEndZoneGradient.addColorStop(1, state.away.dark);
+  ctx.fillStyle = awayEndZoneGradient;
   ctx.fillRect(PLAYFIELD_RIGHT, FIELD_TOP, END_ZONE_WIDTH, FIELD_BOTTOM - FIELD_TOP);
   ctx.globalAlpha = 1;
+  ctx.save();
+  ctx.globalAlpha = .52;
+  ctx.fillStyle = getEndZonePattern();
+  ctx.fillRect(FIELD_LEFT, FIELD_TOP, END_ZONE_WIDTH, FIELD_BOTTOM - FIELD_TOP);
+  ctx.fillRect(PLAYFIELD_RIGHT, FIELD_TOP, END_ZONE_WIDTH, FIELD_BOTTOM - FIELD_TOP);
+  ctx.restore();
+  ctx.fillStyle = 'rgba(235, 255, 213, .22)';
+  ctx.fillRect(FIELD_LEFT - 8, FIELD_TOP, 6, FIELD_BOTTOM - FIELD_TOP);
+  ctx.fillRect(FIELD_RIGHT + 2, FIELD_TOP, 6, FIELD_BOTTOM - FIELD_TOP);
   ctx.strokeStyle = 'rgba(245, 250, 224, .82)';
   ctx.lineWidth = 2;
   for (let yard = 0; yard <= 100; yard += 5) {
@@ -1172,61 +1558,213 @@ function drawPlayer(player) {
   const x = yardToX(player.x);
   const y = laneToY(player.y);
   const active = player.id === state.ballCarrier || player.id === state.defenderId;
-  const running = player.moving;
+  const running = player.moving && !player.tackleRole;
   const stride = running ? Math.sin(player.stride) : 0;
   const strideBack = running ? Math.sin(player.stride + Math.PI) : 0;
-  const tackleProgress = player.tackleTimer > 0 ? 1 - player.tackleTimer / .62 : 0;
+  const tackleDuration = state.tackleSequence?.duration || .92;
+  const tackleProgress = player.tackleTimer > 0 ? 1 - player.tackleTimer / tackleDuration : 0;
+  const tackleEase = tackleProgress * tackleProgress * (3 - 2 * tackleProgress);
+  const throwProgress = player.throwTimer > 0 ? 1 - player.throwTimer / .5 : 0;
   const isRunnerTackled = player.tackleRole === 'runner';
   const isTackler = player.tackleRole === 'tackler';
+  const facing = player.facing || playerFacingAtSnap(player.side);
+  const bodyScale = (player.build || 1) * 1.08;
+  const uniform = player.team.color;
+  const uniformDark = player.team.dark;
+  const skin = player.skin || '#c7835f';
+  const hair = player.hair || '#35221a';
+  const legLift = isRunnerTackled ? -4 : stride * 8;
+  const legLiftBack = isRunnerTackled ? 4 : strideBack * 8;
+  const armSwing = isRunnerTackled ? 0 : strideBack * 7;
+  const drawLimb = (points, width = 6, color = skin) => {
+    ctx.strokeStyle = '#080e13';
+    ctx.lineWidth = width + 4;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    points.slice(1).forEach(point => ctx.lineTo(point[0], point[1]));
+    ctx.stroke();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0], points[0][1]);
+    points.slice(1).forEach(point => ctx.lineTo(point[0], point[1]));
+    ctx.stroke();
+  };
   ctx.save();
   ctx.translate(x, y);
   if (isRunnerTackled) {
-    ctx.translate(player.tackleDir * tackleProgress * 9, tackleProgress * 12);
-    ctx.rotate(player.tackleDir * tackleProgress * .95);
+    ctx.translate(player.tackleDir * tackleEase * 10, tackleEase * 15);
+    ctx.rotate(player.tackleDir * tackleEase * 1.16);
   } else if (isTackler) {
-    ctx.translate(player.tackleDir * tackleProgress * 7, -tackleProgress * 3);
-    ctx.rotate(-player.tackleDir * tackleProgress * .35);
+    ctx.translate(player.tackleDir * tackleEase * 7, -tackleEase * 3);
+    ctx.rotate(-player.tackleDir * tackleEase * .48);
   }
+  ctx.scale(facing, 1);
+  ctx.scale(bodyScale, bodyScale);
   if (active) {
-    ctx.fillStyle = '#fff3c4';
-    ctx.beginPath(); ctx.moveTo(-8, -28); ctx.lineTo(8, -28); ctx.lineTo(0, -20); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 243, 184, .88)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.arc(0, -4, 28 + Math.sin(performance.now() / 180) * 2, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
   }
-  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  const shadowGradient = ctx.createRadialGradient(0, 16, 2, 0, 16, 23);
+  shadowGradient.addColorStop(0, 'rgba(0, 0, 0, .48)');
+  shadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = shadowGradient;
   ctx.save();
-  ctx.scale(1 + (isRunnerTackled ? tackleProgress * .35 : 0), 1);
-  ctx.beginPath(); ctx.ellipse(0, 16, 18, 7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.scale(1 + (isRunnerTackled ? tackleEase * .4 : 0), 1);
+  ctx.beginPath(); ctx.ellipse(0, 17, 22, 8, 0, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
-  const legLift = isRunnerTackled ? -3 : stride * 8;
-  const legLiftBack = isRunnerTackled ? 3 : strideBack * 8;
-  ctx.fillStyle = '#16232a';
-  ctx.save();
-  ctx.translate(-7, 5); ctx.rotate(legLift * .045); ctx.fillRect(-4, 0, 7, 15); ctx.fillRect(-7, 14, 10, 4); ctx.restore();
-  ctx.save();
-  ctx.translate(7, 5); ctx.rotate(legLiftBack * .045); ctx.fillRect(-3, 0, 7, 15); ctx.fillRect(-3, 14, 10, 4); ctx.restore();
-  ctx.fillStyle = player.team.color;
+
+  if (running && !isRunnerTackled && !isTackler) {
+    ctx.globalAlpha = .18;
+    ctx.strokeStyle = uniform;
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i += 1) {
+      ctx.beginPath(); ctx.moveTo(-24 - i * 4, -5 + i * 4); ctx.lineTo(-34 - i * 5, -5 + i * 4); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  const pantsGradient = ctx.createLinearGradient(-10, 2, 10, 22);
+  pantsGradient.addColorStop(0, '#fffdf2');
+  pantsGradient.addColorStop(.55, '#d8e0dc');
+  pantsGradient.addColorStop(1, '#87959a');
+  const drawLeg = (side, lift) => {
+    ctx.save();
+    ctx.translate(side * 7, 6);
+    ctx.rotate(lift * .045);
+    ctx.fillStyle = '#080e13';
+    ctx.beginPath(); ctx.roundRect(-7, -2, 14, 16, 4); ctx.fill();
+    ctx.fillStyle = pantsGradient;
+    ctx.beginPath(); ctx.roundRect(-5, 0, 10, 13, 3); ctx.fill();
+    ctx.fillStyle = uniform;
+    ctx.fillRect(-5, 7, 10, 2);
+    ctx.fillStyle = skin;
+    ctx.beginPath(); ctx.roundRect(-4, 10, 8, 8, 3); ctx.fill();
+    ctx.fillStyle = '#f3f0d9';
+    ctx.fillRect(-4, 10, 8, 3);
+    ctx.fillStyle = '#111a21';
+    ctx.beginPath(); ctx.ellipse(side * 2, 18, 8, 3.5, side * .08, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#dbe7dc';
+    ctx.fillRect(side * 2 - 4, 17, 4, 1.5);
+    ctx.restore();
+  };
+  drawLeg(-1, legLift);
+  drawLeg(1, legLiftBack);
+
+  // Shoulder pads and jersey give the silhouette a readable football shape.
+  const jerseyGradient = ctx.createLinearGradient(-17, -17, 18, 14);
+  jerseyGradient.addColorStop(0, '#ffffff');
+  jerseyGradient.addColorStop(.08, uniform);
+  jerseyGradient.addColorStop(.58, uniform);
+  jerseyGradient.addColorStop(1, uniformDark);
+  ctx.fillStyle = 'rgba(7,14,18,.6)';
+  ctx.beginPath(); ctx.ellipse(-15, -8, 9, 7, -.2, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(15, -8, 9, 7, .2, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = jerseyGradient;
   ctx.strokeStyle = '#101a1f';
+  ctx.lineWidth = 1.5;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.roundRect(-16, -16, 32, 30, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.18)';
+  ctx.beginPath(); ctx.ellipse(-12, -10, 6, 7, -.35, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(12, -10, 6, 7, .35, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(7,14,18,.18)';
+  ctx.fillRect(-14, 5, 28, 5);
+  ctx.fillStyle = 'rgba(255,255,255,.7)';
+  ctx.fillRect(-12, -13, 4, 2);
+  ctx.fillRect(8, -13, 4, 2);
+  ctx.strokeStyle = 'rgba(255,255,255,.38)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(-8, -14); ctx.lineTo(-5, -9); ctx.lineTo(0, -7); ctx.lineTo(5, -9); ctx.lineTo(8, -14); ctx.stroke();
+  ctx.strokeStyle = 'rgba(8,14,19,.72)';
   ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.roundRect(-15, -15, 30, 25, 6); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,.28)';
-  ctx.fillRect(-11, -12, 3, 19);
-  const armSwing = isRunnerTackled ? 0 : strideBack * 7;
-  ctx.strokeStyle = '#e4aa7e';
-  ctx.lineWidth = 5;
-  ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(-13, -9); ctx.lineTo(-20 - armSwing, 2 + armSwing * .35); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(13, -9); ctx.lineTo(20 + armSwing, 2 - armSwing * .35); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-10, -14); ctx.lineTo(-6, -10); ctx.lineTo(0, -8); ctx.lineTo(6, -10); ctx.lineTo(10, -14); ctx.stroke();
+
+  if (isTackler) {
+    drawLimb([[-12, -8], [-4, -2], [13 + tackleEase * 13, 2 + tackleEase * 5]], 7);
+    drawLimb([[12, -8], [7, 0], [20 + tackleEase * 10, 8 + tackleEase * 6]], 7);
+    ctx.fillStyle = '#f1f5e8';
+    ctx.beginPath(); ctx.arc(13 + tackleEase * 13, 2 + tackleEase * 5, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(20 + tackleEase * 10, 8 + tackleEase * 6, 3.2, 0, Math.PI * 2); ctx.fill();
+  } else if (isRunnerTackled) {
+    drawLimb([[-12, -8], [-18, -15 + tackleEase * 10], [-24, -20 + tackleEase * 16]], 7);
+    drawLimb([[12, -8], [19, -13 + tackleEase * 12], [25, -8 + tackleEase * 16]], 7);
+  } else if (player.id === 'QB' && (state.throwing || player.throwTimer > 0)) {
+    const followThrough = player.throwTimer > 0 ? throwProgress : state.throwCharge;
+    drawLimb([[-12, -8], [-18 + followThrough * 24, -16 + followThrough * 20], [-22 + followThrough * 27, -11 + followThrough * 18]], 7);
+    drawLimb([[12, -8], [18 + followThrough * 8, -2 + followThrough * 8], [23 + followThrough * 8, 2 + followThrough * 7]], 7);
+  } else {
+    drawLimb([[-13, -8], [-18, -1 + armSwing * .35], [-20 - armSwing, 3 + armSwing * .35]], 6.5);
+    drawLimb([[13, -8], [18, -1 - armSwing * .35], [20 + armSwing, 3 - armSwing * .35]], 6.5);
+    ctx.fillStyle = '#f1f5e8';
+    ctx.beginPath(); ctx.arc(-20 - armSwing, 3 + armSwing * .35, 3.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(20 + armSwing, 3 - armSwing * .35, 3.2, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Jersey number, collar and side stripe add material detail at game scale.
   ctx.fillStyle = '#f3f0d9';
   ctx.font = '900 11px Barlow Condensed, sans-serif';
   ctx.textAlign = 'center';
+  ctx.shadowColor = 'rgba(0,0,0,.45)';
+  ctx.shadowBlur = 2;
   ctx.fillText(player.number, 0, 2);
-  ctx.fillStyle = '#e4aa7e';
-  ctx.beginPath(); ctx.arc(0, -23, 11, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = player.team.dark;
-  ctx.beginPath(); ctx.arc(0, -26, 12, Math.PI, 0); ctx.fill();
-  ctx.strokeStyle = '#e1e5d7';
-  ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(6, -23); ctx.lineTo(14, -19); ctx.lineTo(7, -15); ctx.stroke();
-  if (player.id === state.ballCarrier && !state.ball) drawMiniBall(18, -5, player.side === 0 ? 1 : -1);
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = 'rgba(255,255,255,.66)';
+  ctx.fillRect(-13, 0, 2, 7);
+  ctx.fillRect(11, 0, 2, 7);
+
+  // Exposed face, hair, helmet shell and facemask turn with the player.
+  ctx.fillStyle = skin;
+  ctx.strokeStyle = '#080e13';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.roundRect(-10, -31, 20, 17, 6); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = player.hair || hair;
+  ctx.beginPath(); ctx.arc(-1, -29, 9, Math.PI, 0); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.18)';
+  ctx.beginPath(); ctx.arc(-5, -29, 3, Math.PI * 1.05, Math.PI * 1.75); ctx.fill();
+  ctx.fillStyle = uniformDark;
+  ctx.strokeStyle = '#080e13';
+  ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.ellipse(0, -30, 15, 11, 0, Math.PI, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = uniform;
+  ctx.beginPath(); ctx.arc(0, -31, 12, Math.PI + .12, -.12); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,.3)';
+  ctx.fillRect(-8, -38, 6, 2.5);
+  ctx.fillStyle = skin;
+  ctx.beginPath(); ctx.arc(9.5, -23, 2.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#171718';
+  ctx.beginPath(); ctx.arc(3.2, -25, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(7.2, -25, 1.3, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = hair;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath(); ctx.moveTo(2, -27.5); ctx.lineTo(4.5, -28); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(6, -28); ctx.lineTo(8.5, -27.5); ctx.stroke();
+  ctx.fillStyle = '#351c1a';
+  ctx.fillRect(4.5, -19.5, 5, 1.1);
+  if (player.visor) {
+    ctx.fillStyle = 'rgba(34,56,72,.72)';
+    ctx.beginPath(); ctx.roundRect(4, -26, 7, 4, 1.5); ctx.fill();
+  }
+  ctx.strokeStyle = '#080e13';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(8, -24); ctx.lineTo(16, -21); ctx.lineTo(9, -15); ctx.stroke();
+  ctx.strokeStyle = '#c5ced0';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(8, -24); ctx.lineTo(16, -21); ctx.lineTo(9, -15); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10, -21); ctx.lineTo(16, -21); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(10, -18); ctx.lineTo(16, -18); ctx.stroke();
+
+  if (isTackler) {
+    ctx.strokeStyle = 'rgba(255, 241, 186, .78)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(8, -1, 20 + tackleEase * 9, -.9, .9); ctx.stroke();
+  }
+  if (player.id === state.ballCarrier && !state.ball) drawMiniBall(19, -5, 1);
   ctx.restore();
 }
 
@@ -1253,9 +1791,22 @@ function drawBall() {
 
 function drawEffects() {
   state.particles.forEach(particle => {
-    ctx.globalAlpha = clamp(particle.life / particle.maxLife, 0, 1);
-    ctx.fillStyle = '#fff1bd';
-    ctx.beginPath(); ctx.arc(yardToX(particle.x), laneToY(particle.y), particle.size, 0, Math.PI * 2); ctx.fill();
+    const alpha = clamp(particle.life / particle.maxLife, 0, 1);
+    const x = yardToX(particle.x);
+    const y = laneToY(particle.y);
+    ctx.globalAlpha = alpha;
+    if (particle.type === 'impact') {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(particle.angle);
+      ctx.strokeStyle = '#fff1bd';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(3, 0); ctx.lineTo(9 + (1 - alpha) * 8, 0); ctx.stroke();
+      ctx.restore();
+    } else {
+      ctx.fillStyle = '#fff1bd';
+      ctx.beginPath(); ctx.arc(x, y, particle.size, 0, Math.PI * 2); ctx.fill();
+    }
   });
   ctx.globalAlpha = 1;
 }
@@ -1275,6 +1826,8 @@ function gameLoop(now) {
     updateEffects(dt);
     if (state.tackleSequence) updateTackleSequence(dt);
     else if (state.playActive && (state.phase === 'kickoff-flight' || state.phase === 'kickoff-return')) updateKickoff(dt);
+    else if (state.playActive && state.phase === 'conversion-kick') updateConversionKick(dt);
+    else if (state.playActive && state.phase === 'conversion-play') updateConversionPlay(dt);
     else if (state.playActive) updatePlay(dt);
   }
   drawScene();
@@ -1294,12 +1847,26 @@ function finishGame() {
 function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
+function normalizePlayKey(event) {
+  const codeMap = { KeyW: 'w', KeyA: 'a', KeyS: 's', KeyD: 'd', ArrowUp: 'arrowup', ArrowRight: 'arrowright', ArrowDown: 'arrowdown', ArrowLeft: 'arrowleft' };
+  const rawKey = typeof event.key === 'string' ? event.key.toLowerCase() : '';
+  return codeMap[event.code] || rawKey;
+}
+
 window.addEventListener('keydown', event => {
-  const key = event.key.toLowerCase();
+  const key = normalizePlayKey(event);
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) event.preventDefault();
   if (event.repeat) return;
   keys.add(key);
   if (!state) return;
+  const playWindowOpen = state.phase === 'play' && !state.playActive && !$('playOverlay').classList.contains('hidden');
+  if (playWindowOpen && isPlayInputKey(key)) {
+    playHeldKeys.add(key);
+  }
+  if (handlePlaySelectionInput(key)) {
+    event.preventDefault();
+    return;
+  }
   if (state.playActive && state.ballCarrier === 'QB' && !state.ball && !isRunPlay()) {
     const qbControls = controlsFor(state.possession);
     if (key === qbControls.up) setPassAim('up');
@@ -1316,7 +1883,12 @@ window.addEventListener('keydown', event => {
   }
 });
 
-window.addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
+window.addEventListener('keyup', event => {
+  const key = normalizePlayKey(event);
+  handlePlaySelectionRelease(key);
+  keys.delete(key);
+  playHeldKeys.delete(key);
+});
 
 $('startGameBtn').addEventListener('click', setupGame);
 $('resetGameBtn').addEventListener('click', () => { cancelAnimationFrame(animationId); state = null; setScreen('setupScreen'); });
