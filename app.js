@@ -9,27 +9,112 @@ const FIELD_RIGHT = 1225;
 const FIELD_TOP = 38;
 const FIELD_BOTTOM = 612;
 const QUARTER_LENGTH = 120;
+const END_ZONE_DEPTH = 10;
+const TOTAL_FIELD_YARDS = 100 + END_ZONE_DEPTH * 2;
+const END_ZONE_WIDTH = (FIELD_RIGHT - FIELD_LEFT) * END_ZONE_DEPTH / TOTAL_FIELD_YARDS;
+const PLAYFIELD_LEFT = FIELD_LEFT + END_ZONE_WIDTH;
+const PLAYFIELD_RIGHT = FIELD_RIGHT - END_ZONE_WIDTH;
+const LEFT_GOAL_LINE = 0;
+const RIGHT_GOAL_LINE = 100;
 
 const teams = [
-  { id: 'hawks', name: 'Harbor Hawks', short: 'HH', color: '#ff714b', dark: '#8b302b', summary: 'Fast receivers and a mobile quarterback attack every blade of grass.', stats: { speed: 90, throwPower: 72, hands: 75, cover: 76 } },
-  { id: 'comets', name: 'Metro Comets', short: 'MC', color: '#68d5d5', dark: '#246b6e', summary: 'A disciplined secondary and a strong arm punish predictable reads.', stats: { speed: 78, throwPower: 88, hands: 84, cover: 88 } },
-  { id: 'mustangs', name: 'Mesa Mustangs', short: 'MM', color: '#e6ba58', dark: '#806324', summary: 'Heavy blockers and a bruising back make the power game dangerous.', stats: { speed: 72, throwPower: 80, hands: 76, cover: 69 } },
-  { id: 'tides', name: 'Cobalt Tides', short: 'CT', color: '#8f89ff', dark: '#393676', summary: 'Creative route runners create space, but the line gives up pressure.', stats: { speed: 84, throwPower: 78, hands: 82, cover: 80 } }
+  { id: 'hawks', name: 'Harbor Hawks', short: 'HH', logo: 'assets/logos/harbor-hawks.png', color: '#ff714b', dark: '#8b302b', summary: 'Fast receivers and a mobile quarterback attack every blade of grass.', stats: { speed: 90, throwPower: 72, hands: 75, cover: 76 } },
+  { id: 'comets', name: 'Metro Comets', short: 'MC', logo: 'assets/logos/metro-comets.png', color: '#68d5d5', dark: '#246b6e', summary: 'A disciplined secondary and a strong arm punish predictable reads.', stats: { speed: 78, throwPower: 88, hands: 84, cover: 88 } },
+  { id: 'mustangs', name: 'Mesa Mustangs', short: 'MM', logo: 'assets/logos/mesa-mustangs.png', color: '#e6ba58', dark: '#806324', summary: 'Heavy blockers and a bruising back make the power game dangerous.', stats: { speed: 72, throwPower: 80, hands: 76, cover: 69 } },
+  { id: 'tides', name: 'Cobalt Tides', short: 'CT', logo: 'assets/logos/cobalt-tides.png', color: '#8f89ff', dark: '#393676', summary: 'Creative route runners create space, but the line gives up pressure.', stats: { speed: 84, throwPower: 78, hands: 82, cover: 80 } }
 ];
 
 const offensePlays = [
   { id: 'slants', name: 'Quick Slants', desc: 'Fast in-breakers · hot read', icon: '↗' },
   { id: 'verts', name: 'Four Verts', desc: 'Stretch the safeties', icon: '↑' },
   { id: 'screen', name: 'RB Screen', desc: 'Let the rush come', icon: '↘' },
-  { id: 'power', name: 'Power Run', desc: 'Follow the pulling guard', icon: '●' }
+  { id: 'power', name: 'Power Run', desc: 'Follow the pulling guard', icon: '●' },
+  { id: 'cross', name: 'Play-Action Cross', desc: 'Sell run · cross behind LB', icon: '✕' },
+  { id: 'sweep', name: 'Outside Sweep', desc: 'Race to the sideline', icon: '➜' },
+  { id: 'flood', name: 'Flood Left', desc: 'Three levels, one side', icon: '≋' },
+  { id: 'qbDraw', name: 'QB Draw', desc: 'Clear the box · go now', icon: '◆' }
 ];
 
 const defensePlays = [
   { id: 'man', name: 'Lock Man', desc: 'Mirror every route', icon: '◎' },
   { id: 'blitz', name: 'Standard Blitz', desc: 'Bring four with heat', icon: '⚡' },
   { id: 'zone', name: 'Zone Blitz', desc: 'Rotate & pressure', icon: '◇' },
-  { id: 'cover2', name: 'Cover 2', desc: 'Protect the deep ball', icon: '△' }
+  { id: 'cover2', name: 'Cover 2', desc: 'Protect the deep ball', icon: '△' },
+  { id: 'spy', name: 'QB Spy', desc: 'LB shadows the scramble', icon: '◉' },
+  { id: 'prevent', name: 'Prevent', desc: 'Keep it in front', icon: '▽' },
+  { id: 'goalLine', name: 'Goal Line', desc: 'Pack the box tight', icon: '▣' },
+  { id: 'bracket', name: 'Bracket Star', desc: 'Double the top threat', icon: '⟐' }
 ];
+
+function playDiagram(kind, playId) {
+  const offense = kind === 'offense';
+  const marker = `arrow-${kind}-${playId}`;
+  const orange = '#ff9b58';
+  const cyan = '#68d5d5';
+  const gold = '#ffd25b';
+  const ink = '#b8c9c0';
+  const dot = (x, y, color, label = '') => `<circle cx="${x}" cy="${y}" r="3.2" fill="${color}" stroke="#0b1718" stroke-width="1.5"/>${label ? `<text x="${x}" y="${y + 1.7}" text-anchor="middle" font-size="4.4" font-weight="800" fill="#0b1718">${label}</text>` : ''}`;
+  const path = (d, color = offense ? orange : cyan, dashed = false, arrow = true) => `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" ${dashed ? 'stroke-dasharray="3 2"' : ''} ${arrow ? `marker-end="url(#${marker})"` : ''}/>`;
+  const field = `<rect x="1" y="1" width="114" height="56" rx="4" fill="#102522" stroke="#496158"/><path d="M58 2V56 M86 2V56" stroke="#527067" stroke-width=".7" stroke-dasharray="2 3"/>`;
+  const defs = `<defs><marker id="${marker}" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto"><path d="M0,0 L5,2.5 L0,5 Z" fill="${offense ? orange : cyan}"/></marker></defs>`;
+  let routes = '';
+  if (offense) {
+    const q = dot(18, 29, orange, 'Q');
+    const rb = dot(20, 40, orange, 'R');
+    const wr1 = dot(18, 12, orange, 'W');
+    const wr2 = dot(18, 46, orange, 'W');
+    const te = dot(20, 22, gold, 'T');
+    const line = `<path d="M24 26h9 M24 30h9 M24 34h9" stroke="${ink}" stroke-width="2" stroke-linecap="round"/>`;
+    const map = {
+      slants: `${path('M18 12h12l12 12')} ${path('M18 46h12l12-12')} ${path('M20 22h12l7 3', gold)} ${path('M20 40h14l7 5', gold)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      verts: `${path('M18 12H101')} ${path('M18 46H101')} ${path('M20 22H77', gold)} ${path('M20 40H46', gold)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      screen: `${path('M18 12h23v-7', gold, true)} ${path('M18 46h23v51', gold, true)} ${path('M20 40h19l19 10', orange)} ${path('M20 22h12l9 7', gold, true)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      power: `${path('M20 40h13l22 8', orange)} ${path('M24 26h18l8 5', gold)} ${path('M24 30h15l6 6', gold)} ${path('M20 22h18l8-5', gold)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      cross: `${path('M18 12h17l30 34')} ${path('M18 46h17l30-34')} ${path('M20 22h25l10 8', gold)} ${path('M20 40h22l10-4', gold)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      sweep: `${path('M20 40h13l10 12h43')} ${path('M18 12h21l10 8', gold, true)} ${path('M18 46h20l10-8', gold, true)} ${path('M20 22h22l12-7', gold)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      flood: `${path('M18 12h20l20-7')} ${path('M20 22h25l16 13', gold)} ${path('M20 40h25l17 17', gold)} ${path('M18 46h13l11-7', orange, true)} ${q}${rb}${wr1}${wr2}${te}${line}`,
+      qbDraw: `${path('M18 12h32', gold, true)} ${path('M18 46h32', gold, true)} ${path('M20 22h24l15 8', gold, true)} ${path('M18 29h23l26 0', orange)} ${path('M20 40h19v-8', gold, true)} ${q}${rb}${wr1}${wr2}${te}${line}`
+    };
+    routes = map[playId] || map.slants;
+  } else {
+    const offenseDots = `${dot(20, 12, orange)}${dot(20, 22, orange)}${dot(20, 40, orange)}${dot(20, 46, orange)}`;
+    const cb1 = dot(47, 12, cyan, 'C'), cb2 = dot(47, 46, cyan, 'C'), lb = dot(43, 29, cyan, 'L'), safety = dot(88, 29, cyan, 'S');
+    const rush1 = path('M47 12L28 12', cyan), rush2 = path('M47 46L28 46', cyan), rushLb = path('M43 29L26 29', cyan);
+    const map = {
+      man: `${path('M47 12L22 12', cyan)} ${path('M47 46L22 46', cyan)} ${path('M43 29L20 40', cyan)} ${path('M88 29L20 22', cyan, true)} ${offenseDots}${cb1}${cb2}${lb}${safety}`,
+      blitz: `${rush1}${rush2}${rushLb} ${path('M88 29L20 22', cyan, true)} ${offenseDots}${cb1}${cb2}${lb}${safety}`,
+      zone: `${path('M47 12L55 8', cyan)} ${path('M47 46L55 50', cyan)} ${path('M43 29L53 29', cyan)} ${path('M88 29L75 10', cyan)} ${offenseDots}${cb1}${cb2}${lb}${safety}<rect x="52" y="5" width="20" height="12" fill="none" stroke="${cyan}" stroke-dasharray="2 2" opacity=".5"/><rect x="52" y="40" width="20" height="12" fill="none" stroke="${cyan}" stroke-dasharray="2 2" opacity=".5"/>`,
+      cover2: `${path('M47 12L47 6', cyan)} ${path('M47 46L47 52', cyan)} ${path('M43 29L54 34', cyan, true)} ${path('M88 29L80 7', cyan)} ${path('M88 29L80 51', cyan)} ${offenseDots}${cb1}${cb2}${lb}${safety}`,
+      spy: `${path('M43 29L32 29', gold, true)} ${path('M47 12L23 12', cyan)} ${path('M47 46L23 46', cyan)} ${path('M88 29L75 29', cyan, true)} ${offenseDots}${cb1}${cb2}${lb}${safety}`,
+      prevent: `${path('M47 12L64 5', cyan)} ${path('M47 46L64 53', cyan)} ${path('M43 29L68 29', cyan)} ${path('M88 29L100 29', cyan)} ${offenseDots}${cb1}${cb2}${lb}${safety}`,
+      goalLine: `${path('M47 12L28 12', cyan)} ${path('M47 46L28 46', cyan)} ${path('M43 29L26 29', cyan)} ${path('M88 29L36 29', cyan)} ${offenseDots}${cb1}${cb2}${lb}${safety}<path d="M25 4V54" stroke="${gold}" stroke-width="2"/>`,
+      bracket: `${path('M47 12L20 12', cyan)} ${path('M47 12L20 22', gold)} ${path('M47 46L35 46', cyan)} ${path('M43 29L28 38', cyan, true)} ${path('M88 29L70 29', cyan)} ${offenseDots}${cb1}${cb2}${lb}${safety}`
+    };
+    routes = map[playId] || map.man;
+  }
+  return `<svg viewBox="0 0 116 58" role="img" aria-label="${offense ? 'Offensive' : 'Defensive'} ${playId} route diagram">${defs}${field}${routes}</svg>`;
+}
+
+function playChoiceMarkup(play, kind) {
+  const selected = kind === 'offense' ? state.selectedOffense === play.id : state.selectedDefense === play.id;
+  return `<button class="play-choice ${selected ? `selected ${kind}` : ''}" data-play="${play.id}" data-kind="${kind}"><div class="play-art">${playDiagram(kind, play.id)}</div><strong>${play.icon} ${play.name}</strong><span>${play.desc}</span></button>`;
+}
+
+function setPlayTeamTheme(side, team, playerNumber, role) {
+  const column = $(`${side}PlayColumn`);
+  column.style.setProperty('--play-team-color', team.color);
+  column.style.setProperty('--play-team-dark', team.dark);
+  column.classList.toggle('offense-column', role === 'offense');
+  column.classList.toggle('defense-column', role === 'defense');
+  $(`${side}PlayRole`).textContent = role.toUpperCase();
+  $(`${side}PlayCallout`).textContent = `${team.name.toUpperCase()} · P${playerNumber}`;
+}
+
+function renderTeamPlayColumn(side, team, playerNumber, role) {
+  setPlayTeamTheme(side, team, playerNumber, role);
+  const plays = role === 'offense' ? offensePlays : defensePlays;
+  $(`${side}PlayChoices`).innerHTML = plays.map(play => playChoiceMarkup(play, role)).join('');
+}
 
 let homeIndex = 0;
 let awayIndex = 1;
@@ -41,13 +126,25 @@ function statBar(label, value) {
   return `<div class="stat-item"><span>${label}</span><div class="stat-bar"><i style="width:${value}%"></i></div><b class="stat-value">${value}</b></div>`;
 }
 
+function applyTeamLogo(element, team) {
+  element.replaceChildren();
+  element.setAttribute('aria-label', `${team.name} logo`);
+  element.title = team.name;
+  element.style.backgroundColor = team.color;
+  element.style.backgroundImage = 'none';
+  const logo = document.createElement('img');
+  logo.src = team.logo;
+  logo.alt = `${team.name} logo`;
+  logo.decoding = 'async';
+  element.appendChild(logo);
+}
+
 function renderTeamPicker(side) {
   const isHome = side === 'home';
   const index = isHome ? homeIndex : awayIndex;
   const team = teams[index];
   $(`${side}TeamName`).textContent = team.name;
-  $(`${side}TeamBadge`).textContent = team.short;
-  $(`${side}TeamBadge`).style.background = team.color;
+  applyTeamLogo($(`${side}TeamBadge`), team);
   $(`${side}TeamTabs`).innerHTML = teams.map((item, i) => `<button class="team-tab ${i === index ? 'selected' : ''}" data-side="${side}" data-index="${i}">${item.short}</button>`).join('');
   $(`${side}TeamDetails`).innerHTML = `<p class="team-summary">${team.summary}</p><div class="stat-grid">${statBar('Speed', team.stats.speed)}${statBar('Throw', team.stats.throwPower)}${statBar('Hands', team.stats.hands)}${statBar('Cover', team.stats.cover)}</div>`;
   document.querySelectorAll(`.team-tab[data-side="${side}"]`).forEach(button => button.addEventListener('click', () => {
@@ -72,6 +169,10 @@ function controlsFor(side) {
 
 function keyForSide(side) {
   return controlsFor(side).action;
+}
+
+function isRunPlay() {
+  return ['power', 'sweep', 'qbDraw'].includes(state?.selectedOffense);
 }
 
 function makePlayer({ id, role, side, x, y, number }) {
@@ -124,10 +225,8 @@ function setScreen(screen) {
 function setupScoreboard() {
   $('scoreHomeName').textContent = state.home.name.toUpperCase();
   $('scoreAwayName').textContent = state.away.name.toUpperCase();
-  $('scoreHomeBadge').textContent = state.home.short;
-  $('scoreAwayBadge').textContent = state.away.short;
-  $('scoreHomeBadge').style.background = state.home.color;
-  $('scoreAwayBadge').style.background = state.away.color;
+  applyTeamLogo($('scoreHomeBadge'), state.home);
+  applyTeamLogo($('scoreAwayBadge'), state.away);
   $('resultHomeName').textContent = state.home.name.toUpperCase();
   $('resultAwayName').textContent = state.away.name.toUpperCase();
   updateHud();
@@ -176,7 +275,7 @@ function announce(message, note = state.note) {
 }
 
 function yardToX(yard) {
-  return FIELD_LEFT + (FIELD_RIGHT - FIELD_LEFT) * clamp(yard, 0, 100) / 100;
+  return PLAYFIELD_LEFT + (PLAYFIELD_RIGHT - PLAYFIELD_LEFT) * clamp(yard, 0, 100) / 100;
 }
 
 function laneToY(lane) {
@@ -207,7 +306,7 @@ function createFormation() {
     ['S', 'S', line + direction * 14, 50, 31]
   ];
   state.players = [...off.map(([id, role, x, y, number]) => makePlayer({ id, role, side, x, y, number })), ...def.map(([id, role, x, y, number]) => makePlayer({ id, role, side: 1 - side, x, y, number }))];
-  state.ballCarrier = state.selectedOffense === 'power' ? 'RB' : 'QB';
+  state.ballCarrier = ['power', 'sweep'].includes(state.selectedOffense) ? 'RB' : 'QB';
   state.passTargetId = getPassTargetId();
   state.defenderId = state.selectedDefense === 'blitz' ? 'LB1' : 'CB1';
   state.players.forEach(player => setRoute(player));
@@ -303,19 +402,20 @@ function setRoute(player) {
   const play = state.selectedOffense || 'slants';
   if (player.side === state.possession) {
     if (player.id === 'WR1') {
-      player.targetX = player.homeX + direction * (play === 'verts' ? 27 : play === 'slants' ? 13 : 8);
-      player.targetY = play === 'slants' ? 43 : 10;
+      player.targetX = player.homeX + direction * (play === 'verts' ? 27 : play === 'slants' ? 13 : play === 'cross' ? 18 : play === 'flood' ? 30 : 8);
+      player.targetY = play === 'slants' ? 43 : play === 'cross' ? 86 : play === 'flood' ? 8 : play === 'sweep' ? 7 : play === 'qbDraw' ? 8 : 10;
     } else if (player.id === 'WR2') {
-      player.targetX = player.homeX + direction * (play === 'verts' ? 27 : play === 'slants' ? 13 : 8);
-      player.targetY = play === 'slants' ? 58 : 90;
+      player.targetX = player.homeX + direction * (play === 'verts' ? 27 : play === 'slants' ? 13 : play === 'cross' ? 18 : play === 'flood' ? 18 : 8);
+      player.targetY = play === 'slants' ? 58 : play === 'cross' ? 14 : play === 'flood' ? 40 : play === 'sweep' ? 89 : play === 'qbDraw' ? 92 : 90;
     } else if (player.id === 'TE') {
-      player.targetX = player.homeX + direction * (play === 'verts' ? 18 : play === 'power' ? 6 : 11);
-      player.targetY = play === 'screen' ? 30 : 33;
+      player.targetX = player.homeX + direction * (play === 'verts' ? 18 : play === 'power' ? 6 : play === 'cross' ? 18 : play === 'flood' ? 19 : play === 'sweep' ? 8 : 11);
+      player.targetY = play === 'screen' ? 30 : play === 'cross' ? 28 : play === 'flood' ? 28 : 33;
     } else if (player.id === 'RB') {
-      player.targetX = player.homeX + direction * (play === 'screen' ? 15 : play === 'power' ? 20 : 5);
-      player.targetY = play === 'screen' ? 76 : 66;
+      player.targetX = player.homeX + direction * (play === 'screen' ? 15 : play === 'power' ? 20 : play === 'sweep' ? 30 : play === 'flood' ? 12 : play === 'cross' ? 4 : 3);
+      player.targetY = play === 'screen' ? 76 : play === 'sweep' ? 83 : play === 'flood' ? 72 : 66;
     } else if (player.role === 'OL') {
-      player.targetX = player.homeX + direction * (play === 'power' ? 8 : 3);
+      player.targetX = player.homeX + direction * (play === 'power' ? 8 : play === 'sweep' ? 7 : 3);
+      player.targetY = play === 'sweep' ? player.homeY + (player.id === 'G1' ? -8 : 8) : player.homeY;
     }
   }
   if (previousTarget !== `${player.targetX}:${player.targetY}`) player.routeComplete = false;
@@ -336,13 +436,19 @@ function setupGame() {
 
 function renderKickoffOverlay() {
   if (!state || state.gameOver) return;
+  const kickingTeam = state.kickoffTeam === 0 ? state.home : state.away;
+  const returnTeam = state.possession === 0 ? state.home : state.away;
+  setPlayTeamTheme('home', state.home, 1, state.kickoffTeam === 0 ? 'offense' : 'defense');
+  setPlayTeamTheme('away', state.away, 2, state.kickoffTeam === 1 ? 'offense' : 'defense');
   $('playOverlay').classList.remove('hidden');
-  $('possessionLabel').textContent = 'KICKOFF';
-  $('offenseCallout').textContent = `PLAYER ${state.kickoffTeam + 1} · KICKER`;
-  $('defenseCallout').textContent = `PLAYER ${state.possession + 1} · RETURN TEAM`;
+  $('possessionLabel').textContent = `${kickingTeam.name.toUpperCase()} KICKING`;
+  $('possessionLabel').style.color = kickingTeam.color;
+  $('possessionLabel').style.borderColor = kickingTeam.color;
   $('driveSituation').textContent = `KICKOFF · PLAYER ${state.kickoffTeam + 1} KICKS`;
-  $('offensePlayChoices').innerHTML = '<div class="play-choice selected offense"><strong>↗ Kick deep</strong><span>Build power, then send it downfield.</span></div>';
-  $('defensePlayChoices').innerHTML = '<div class="play-choice selected defense"><strong>↘ Set up the return</strong><span>Player 2 takes over when the catch is made.</span></div>';
+  const kickChoice = `<div class="play-choice selected offense" data-kind="offense"><div class="play-art">${playDiagram('offense', 'verts')}</div><strong>↗ Kick deep</strong><span>Build power, then send it downfield.</span></div>`;
+  const returnChoice = `<div class="play-choice selected defense" data-kind="defense"><div class="play-art">${playDiagram('defense', 'prevent')}</div><strong>↘ Set up the return</strong><span>Player 2 takes over when the catch is made.</span></div>`;
+  $('homePlayChoices').innerHTML = state.kickoffTeam === 0 ? kickChoice : returnChoice;
+  $('awayPlayChoices').innerHTML = state.kickoffTeam === 1 ? kickChoice : returnChoice;
   $('offenseReadyDot').classList.add('ready');
   $('defenseReadyDot').classList.add('ready');
   $('offenseReadyText').textContent = 'Kicker ready';
@@ -354,16 +460,22 @@ function renderKickoffOverlay() {
 
 function renderPlayOverlay() {
   if (!state || state.gameOver) return;
+  const offenseTeam = state.possession === 0 ? state.home : state.away;
+  const defenseTeam = state.possession === 0 ? state.away : state.home;
+  renderTeamPlayColumn('home', state.home, 1, state.possession === 0 ? 'offense' : 'defense');
+  renderTeamPlayColumn('away', state.away, 2, state.possession === 1 ? 'offense' : 'defense');
   $('playOverlay').classList.remove('hidden');
   $('snapBtn').innerHTML = 'SNAP IT <span>↗</span>';
-  $('possessionLabel').textContent = `${state.possession === 0 ? 'HOME' : 'AWAY'} BALL`;
-  $('offenseCallout').textContent = `PLAYER ${state.possession + 1}`;
-  $('defenseCallout').textContent = `PLAYER ${2 - state.possession}`;
+  $('possessionLabel').textContent = `${offenseTeam.name.toUpperCase()} BALL`;
+  $('possessionLabel').style.color = offenseTeam.color;
+  $('possessionLabel').style.borderColor = offenseTeam.color;
   $('driveSituation').textContent = `${ordinal(state.down)} & ${Math.max(1, Math.ceil(state.distance))} · BALL ON ${Math.round(state.ballYard)}`;
-  $('offensePlayChoices').innerHTML = offensePlays.map(play => `<button class="play-choice ${state.selectedOffense === play.id ? 'selected offense' : ''}" data-play="${play.id}"><strong>${play.icon} ${play.name}</strong><span>${play.desc}</span></button>`).join('');
-  $('defensePlayChoices').innerHTML = defensePlays.map(play => `<button class="play-choice ${state.selectedDefense === play.id ? 'selected defense' : ''}" data-play="${play.id}"><strong>${play.icon} ${play.name}</strong><span>${play.desc}</span></button>`).join('');
-  document.querySelectorAll('#offensePlayChoices .play-choice').forEach(button => button.addEventListener('click', () => { state.selectedOffense = button.dataset.play; createFormation(); renderPlayOverlay(); }));
-  document.querySelectorAll('#defensePlayChoices .play-choice').forEach(button => button.addEventListener('click', () => { state.selectedDefense = button.dataset.play; createFormation(); renderPlayOverlay(); }));
+  document.querySelectorAll('#homePlayChoices .play-choice, #awayPlayChoices .play-choice').forEach(button => button.addEventListener('click', () => {
+    if (button.dataset.kind === 'offense') state.selectedOffense = button.dataset.play;
+    if (button.dataset.kind === 'defense') state.selectedDefense = button.dataset.play;
+    createFormation();
+    renderPlayOverlay();
+  }));
   const offenseReady = Boolean(state.selectedOffense);
   const defenseReady = Boolean(state.selectedDefense);
   $('offenseReadyDot').classList.toggle('ready', offenseReady);
@@ -389,7 +501,7 @@ function startPlay() {
   const offense = offensePlays.find(play => play.id === state.selectedOffense);
   const defense = defensePlays.find(play => play.id === state.selectedDefense);
   const target = getPassTarget();
-  const targetText = state.selectedOffense === 'power' ? 'Run look: follow the pulling guard.' : `QB read: ${targetLabel(target)}. Follow the gold target line.`;
+  const targetText = isRunPlay() ? 'Run look: follow the drawn lane and trust your blockers.' : `QB read: ${targetLabel(target)}. Follow the gold target line.`;
   announce(`${offense.name} · ${defense.name}`, targetText);
 }
 
@@ -440,7 +552,7 @@ function moveToward(player, targetX, targetY, dt, rate) {
     player.y += player.vy * dt;
     player.routeComplete = false;
   }
-  player.x = clamp(player.x, 2, 98);
+  player.x = clamp(player.x, 0, 100);
   player.y = clamp(player.y, 5, 95);
 }
 
@@ -501,6 +613,20 @@ function defensiveDecisionTarget(player) {
     }
   }
 
+  if (state.selectedDefense === 'spy' && player.id === 'LB1') {
+    return quarterback ? { x: quarterback.x - direction * 2.2, y: quarterback.y } : { x: player.homeX, y: player.homeY };
+  }
+  if (state.selectedDefense === 'goalLine') {
+    return carrier ? { x: carrier.x - direction * 1.2, y: carrier.y } : { x: player.homeX - direction * 2, y: player.homeY };
+  }
+  if (state.selectedDefense === 'prevent') {
+    if (player.role === 'CB' || player.role === 'S') return { x: player.homeX + direction * 9, y: player.homeY };
+    return { x: player.homeX + direction * 2, y: player.homeY };
+  }
+  if (state.selectedDefense === 'bracket' && (player.id === 'CB1' || player.id === 'LB1')) {
+    const star = state.players.find(candidate => candidate.id === 'WR1');
+    return star ? { x: star.x - direction * 1.1, y: star.y + (player.id === 'LB1' ? 4 : -4) } : { x: player.homeX, y: player.homeY };
+  }
   if (state.selectedDefense === 'blitz' && (player.id === 'LB1' || player.id === 'DE1')) {
     return quarterback ? { x: quarterback.x - direction * 1.3, y: quarterback.y } : { x: player.homeX, y: player.homeY };
   }
@@ -545,7 +671,7 @@ function updatePlayer(player, dt) {
     if (keys.has(controls.up)) dy -= 1;
     if (keys.has(controls.down)) dy += 1;
   }
-  if (isUserControlled && isBallSide && player.id === 'QB' && state.ballCarrier === 'QB' && !state.ball && state.selectedOffense !== 'power') {
+  if (isUserControlled && isBallSide && player.id === 'QB' && state.ballCarrier === 'QB' && !state.ball && !isRunPlay()) {
     if (dy < 0) setPassAim('up');
     if (dy > 0) setPassAim('down');
   }
@@ -557,7 +683,7 @@ function updatePlayer(player, dt) {
     const blend = Math.min(1, dt * 10);
     player.vx += (desiredVx - player.vx) * blend;
     player.vy += (desiredVy - player.vy) * blend;
-    player.x = clamp(player.x + player.vx * dt, 2, 98);
+    player.x = clamp(player.x + player.vx * dt, 0, 100);
     player.y = clamp(player.y + player.vy * dt, 5, 95);
   } else if (state.playActive && !isBallSide && isUserControlled) {
     if (player.reactionTimer > 0) {
@@ -580,7 +706,7 @@ function updatePlayer(player, dt) {
         moveToward(player, player.homeX, player.homeY, dt, roleSpeed(player));
       } else {
         const support = offensiveSupportTarget(player);
-        const isBlocker = player.role === 'OL' || (player.role === 'TE' && state.selectedOffense === 'power');
+        const isBlocker = player.role === 'OL' || (player.role === 'TE' && ['power', 'sweep', 'qbDraw'].includes(state.selectedOffense));
         const blockTarget = support?.threat || (isBlocker ? nearestDefender(player, 10) : null);
         if (blockTarget) {
           const direction = state.possession === 0 ? 1 : -1;
@@ -882,7 +1008,7 @@ function updateKickoff(dt) {
   if (!state.playActive) return;
   const runner = controlledPlayer();
   if (!runner) return;
-  const goalLine = state.possession === 0 ? 98 : 2;
+  const goalLine = state.possession === 0 ? RIGHT_GOAL_LINE : LEFT_GOAL_LINE;
   if ((state.possession === 0 && runner.x >= goalLine) || (state.possession === 1 && runner.x <= goalLine)) {
     scoreTouchdown(state.possession);
     return;
@@ -904,7 +1030,7 @@ function updatePlay(dt) {
   state.players.forEach(player => updatePlayer(player, dt));
   const action = keyForSide(state.possession);
   const qbActive = state.ballCarrier === 'QB' && state.possession === (state.players.find(player => player.id === 'QB')?.side ?? state.possession);
-  if (qbActive && state.selectedOffense !== 'power') {
+  if (qbActive && !isRunPlay()) {
     if (keys.has(action)) {
       state.throwing = true;
       state.throwCharge = Math.min(1, state.throwCharge + dt / 1.15);
@@ -918,10 +1044,10 @@ function updatePlay(dt) {
   if (!state.playActive) return;
   const runner = controlledPlayer();
   if (runner && state.ballCarrier !== null) {
-    const goalLine = state.possession === 0 ? 98 : 2;
+    const goalLine = state.possession === 0 ? RIGHT_GOAL_LINE : LEFT_GOAL_LINE;
     if ((state.possession === 0 && runner.x >= goalLine) || (state.possession === 1 && runner.x <= goalLine)) endPlay('touchdown', 100);
   }
-  if (state.playActive && state.playTime > 7.8 && state.ballCarrier === 'QB' && !state.ball && state.selectedOffense !== 'power') endPlay('sack', -1);
+  if (state.playActive && state.playTime > 7.8 && state.ballCarrier === 'QB' && !state.ball && !isRunPlay()) endPlay('sack', -1);
 }
 
 function resolveOutOfBounds() {
@@ -943,9 +1069,9 @@ function drawField() {
   ctx.fillRect(FIELD_LEFT, FIELD_TOP, FIELD_RIGHT - FIELD_LEFT, FIELD_BOTTOM - FIELD_TOP);
   ctx.fillStyle = state.home.color;
   ctx.globalAlpha = .78;
-  ctx.fillRect(FIELD_LEFT, FIELD_TOP, (FIELD_RIGHT - FIELD_LEFT) * .1, FIELD_BOTTOM - FIELD_TOP);
+  ctx.fillRect(FIELD_LEFT, FIELD_TOP, END_ZONE_WIDTH, FIELD_BOTTOM - FIELD_TOP);
   ctx.fillStyle = state.away.color;
-  ctx.fillRect(FIELD_RIGHT - (FIELD_RIGHT - FIELD_LEFT) * .1, FIELD_TOP, (FIELD_RIGHT - FIELD_LEFT) * .1, FIELD_BOTTOM - FIELD_TOP);
+  ctx.fillRect(PLAYFIELD_RIGHT, FIELD_TOP, END_ZONE_WIDTH, FIELD_BOTTOM - FIELD_TOP);
   ctx.globalAlpha = 1;
   ctx.strokeStyle = 'rgba(245, 250, 224, .82)';
   ctx.lineWidth = 2;
@@ -972,11 +1098,17 @@ function drawField() {
   ctx.strokeStyle = '#f4f5df';
   ctx.lineWidth = 5;
   ctx.strokeRect(FIELD_LEFT, FIELD_TOP, FIELD_RIGHT - FIELD_LEFT, FIELD_BOTTOM - FIELD_TOP);
+  ctx.strokeStyle = 'rgba(255, 245, 190, .98)';
+  ctx.lineWidth = 4;
+  [LEFT_GOAL_LINE, RIGHT_GOAL_LINE].forEach(yard => {
+    const x = yardToX(yard);
+    ctx.beginPath(); ctx.moveTo(x, FIELD_TOP); ctx.lineTo(x, FIELD_BOTTOM); ctx.stroke();
+  });
   ctx.fillStyle = 'rgba(255,255,255,.7)';
   ctx.font = '800 11px DM Mono, monospace';
   ctx.textAlign = 'center';
-  ctx.fillText(state.home.short, yardToX(5), FIELD_TOP + 118);
-  ctx.fillText(state.away.short, yardToX(95), FIELD_TOP + 118);
+  ctx.fillText(state.home.short, FIELD_LEFT + END_ZONE_WIDTH / 2, FIELD_TOP + 118);
+  ctx.fillText(state.away.short, PLAYFIELD_RIGHT + END_ZONE_WIDTH / 2, FIELD_TOP + 118);
   if (state.players.length) drawRoutes();
   drawPassPrediction();
   if (state.playActive || state.selectedOffense) {
@@ -992,7 +1124,7 @@ function drawField() {
 }
 
 function drawPassPrediction() {
-  if (!state.playActive || state.selectedOffense === 'power' || !state.players.length) return;
+  if (!state.playActive || isRunPlay() || !state.players.length) return;
   const qb = state.players.find(player => player.id === 'QB');
   const target = getPassTarget();
   if (!qb || !target) return;
@@ -1168,7 +1300,7 @@ window.addEventListener('keydown', event => {
   if (event.repeat) return;
   keys.add(key);
   if (!state) return;
-  if (state.playActive && state.ballCarrier === 'QB' && !state.ball && state.selectedOffense !== 'power') {
+  if (state.playActive && state.ballCarrier === 'QB' && !state.ball && !isRunPlay()) {
     const qbControls = controlsFor(state.possession);
     if (key === qbControls.up) setPassAim('up');
     if (key === qbControls.down) setPassAim('down');
